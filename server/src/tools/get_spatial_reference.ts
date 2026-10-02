@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerGetSpatialReferenceTool(server: McpServer) {
   server.tool(
@@ -28,7 +29,7 @@ export function registerGetSpatialReferenceTool(server: McpServer) {
           });
         });
         return {
-          content: [{ type: "text", text: JSON.stringify(response) }],
+          content: [{ type: "text", text: toText(response) }],
         };
       } catch (error) {
         return {

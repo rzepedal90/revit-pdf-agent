@@ -1,4 +1,5 @@
 import { withRevitConnection } from "./ConnectionManager.js";
+import { toText } from "./toolResult.js";
 
 // Typed-error helper for the verified-write tools. The C# command set throws
 // RevitCommandException whose message is "[code] detail"; the transport only
@@ -32,7 +33,7 @@ export async function runTypedCommand(command: string, params: unknown): Promise
       response && typeof response === "object" && "ok" in response
         ? response
         : { ok: true, result: response };
-    return { content: [{ type: "text", text: JSON.stringify(body) }] };
+    return { content: [{ type: "text", text: toText(body) }] };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     return {

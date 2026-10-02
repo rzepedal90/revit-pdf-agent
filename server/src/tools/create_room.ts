@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerCreateRoomTool(server: McpServer) {
   server.tool(
     "create_room",
-    "Create and place rooms in Revit at specified locations. Rooms are placed within enclosed wall boundaries and can be named and numbered. The location point should be inside an enclosed area bounded by walls. All coordinates are in millimeters (mm).",
+    "Create rooms at points (mm) that lie inside enclosed wall boundaries; optional name, number, level, limits.",
     {
       data: z
         .array(
@@ -19,9 +20,9 @@ export function registerCreateRoomTool(server: McpServer) {
               .describe("Room number (e.g., '101', 'A-01')"),
             location: z
               .object({
-                x: z.number().describe("X coordinate in mm (should be inside enclosed walls)"),
-                y: z.number().describe("Y coordinate in mm (should be inside enclosed walls)"),
-                z: z.number().describe("Z coordinate in mm (typically 0 or level elevation)"),
+                x: z.number(),
+                y: z.number(),
+                z: z.number(),
               })
               .describe(
                 "The location point where the room will be placed - must be inside an enclosed area"
@@ -66,7 +67,7 @@ export function registerCreateRoomTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

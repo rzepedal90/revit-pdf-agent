@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerGetAvailableFamilyTypesTool(server: McpServer) {
   server.tool(
     "get_available_family_types",
-    "Get available family types in the current Revit project. You can filter by category and family name, and limit the number of returned types.",
+    "List family types in the project; filter by category and family name.",
     {
       categoryList: z
         .array(z.string())
@@ -41,7 +42,7 @@ export function registerGetAvailableFamilyTypesTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

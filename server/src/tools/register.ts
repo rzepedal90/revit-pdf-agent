@@ -2,47 +2,63 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { resolveProfile } from "./profiles.js";
+
+// Files in this directory that are not tool modules.
+const NON_TOOL_FILES = new Set(["index", "register", "profiles"]);
 
 export async function registerTools(server: McpServer) {
-  // 获取当前文件的目录路径
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
 
-  // 读取tools目录下的所有文件
-  const files = fs.readdirSync(__dirname);
+  const { allowed, warnings, label } = resolveProfile(process.env);
+  for (const w of warnings) console.error(`[profile] warning: ${w}`);
 
-  // 过滤出.ts或.js文件，但排除index文件和register文件
-  const toolFiles = files.filter(
-    (file) =>
-      (file.endsWith(".ts") || file.endsWith(".js")) &&
-      file !== "index.ts" &&
-      file !== "index.js" &&
-      file !== "register.ts" &&
-      file !== "register.js"
-  );
+  // Wrap the server so tools outside the active profile are never registered.
+  const enabled: string[] = [];
+  const skipped: string[] = [];
+  const filtered = new Proxy(server, {
+    get(target, prop, receiver) {
+      if (prop === "tool") {
+        return (name: string, ...rest: unknown[]) => {
+          if (allowed && !allowed.has(name)) {
+            skipped.push(name);
+            return undefined;
+          }
+          enabled.push(name);
+          return (target.tool as (...a: unknown[]) => unknown).call(target, name, ...rest);
+        };
+      }
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  }) as McpServer;
 
-  // 动态导入并注册每个工具
+  const toolFiles = fs.readdirSync(__dirname).filter((file) => {
+    if (!/\.(ts|js)$/.test(file) || file.endsWith(".d.ts")) return false;
+    return !NON_TOOL_FILES.has(file.replace(/\.(ts|js)$/, ""));
+  });
+
   for (const file of toolFiles) {
     try {
-      // 构建导入路径
-      const importPath = `./${file.replace(/\.(ts|js)$/, ".js")}`;
-
-      // 动态导入模块
-      const module = await import(importPath);
-
-      // 查找并执行注册函数
+      const module = await import(`./${file.replace(/\.(ts|js)$/, ".js")}`);
       const registerFunctionName = Object.keys(module).find(
         (key) => key.startsWith("register") && typeof module[key] === "function"
       );
-
       if (registerFunctionName) {
-        module[registerFunctionName](server);
-        console.error(`已注册工具: ${file}`);
-      } else {
-        console.warn(`警告: 在文件 ${file} 中未找到注册函数`);
+        module[registerFunctionName](filtered);
+      } else if (Object.keys(module).length > 0) {
+        console.error(`Warning: no register function found in ${file}`);
       }
     } catch (error) {
-      console.error(`注册工具 ${file} 时出错:`, error);
+      console.error(`Error registering tools from ${file}:`, error);
     }
   }
+
+  if (allowed) {
+    const missing = [...allowed].filter((t) => !enabled.includes(t));
+    if (missing.length) console.error(`[profile] not available (no such tool module yet): ${missing.join(", ")}`);
+  }
+  console.error(`[profile] ${label}: enabled ${enabled.length} tools: ${enabled.join(", ")}`);
+  if (skipped.length) console.error(`[profile] skipped ${skipped.length}: ${skipped.join(", ")}`);
 }

@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerTagAllWallsTool(server: McpServer) {
   server.tool(
     "tag_all_walls",
-    "Create tags for all walls in the current active view. Tags will be placed at the middle point of each wall.",
+    "Tag all walls in the active view at their midpoints.",
     {
       useLeader: z
         .boolean()
@@ -28,7 +29,7 @@ export function registerTagAllWallsTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

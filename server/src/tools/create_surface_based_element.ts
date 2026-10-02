@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerCreateSurfaceBasedElementTool(server: McpServer) {
   server.tool(
     "create_surface_based_element",
-    "Create one or more surface-based elements in Revit such as floors, ceilings, or roofs. Supports batch creation with detailed parameters including family type ID, boundary lines, thickness, and level information. All units are in millimeters (mm).",
+    "Batch-create surface-based elements (floors, ceilings, roofs) from a closed boundary loop, type id, thickness and level. mm.",
     {
       data: z
         .array(
@@ -27,14 +28,14 @@ export function registerCreateSurfaceBasedElementTool(server: McpServer) {
                   .array(
                     z.object({
                       p0: z.object({
-                        x: z.number().describe("X coordinate of start point"),
-                        y: z.number().describe("Y coordinate of start point"),
-                        z: z.number().describe("Z coordinate of start point"),
+                        x: z.number(),
+                        y: z.number(),
+                        z: z.number(),
                       }),
                       p1: z.object({
-                        x: z.number().describe("X coordinate of end point"),
-                        y: z.number().describe("Y coordinate of end point"),
-                        z: z.number().describe("Z coordinate of end point"),
+                        x: z.number(),
+                        y: z.number(),
+                        z: z.number(),
                       }),
                     })
                   )
@@ -63,7 +64,7 @@ export function registerCreateSurfaceBasedElementTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

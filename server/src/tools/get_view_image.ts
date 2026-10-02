@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerGetViewImageTool(server: McpServer) {
   server.tool(
@@ -43,7 +44,7 @@ export function registerGetViewImageTool(server: McpServer) {
         const { imageBase64, ...meta } = response ?? {};
         if (!imageBase64) {
           return {
-            content: [{ type: "text" as const, text: JSON.stringify(response) }],
+            content: [{ type: "text" as const, text: toText(response) }],
           };
         }
         return {

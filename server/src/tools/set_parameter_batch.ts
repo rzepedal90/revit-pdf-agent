@@ -6,7 +6,7 @@ import { parameterValueSchema, unitsDescription } from "./set_parameter.js";
 export function registerSetParameterBatchTool(server: McpServer) {
   server.tool(
     "set_parameter_batch",
-    "Set many parameters (id-based) in ONE transaction, all-or-nothing: every item is validated first, written, regenerated once and read back; any failure rolls everything back. Returns {ok,count,items:[{index,elementId,name,before,after}]} or {ok:false,error:{code,message}} naming the failing items.",
+    "Set many parameters in one all-or-nothing transaction (validated, written, read back; any failure rolls back). Returns {ok,count,items} or {ok:false,error}.",
     {
       items: z
         .array(

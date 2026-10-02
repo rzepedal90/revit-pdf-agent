@@ -5,7 +5,7 @@ import { runTypedCommand } from "../utils/typedResult.js";
 export function registerChangeElementTypeTool(server: McpServer) {
   server.tool(
     "change_element_type",
-    "Change the type of one or more elements to typeId after checking category and valid-type compatibility; reads each element's type back and rolls everything back on mismatch. Returns {ok,typeId,typeName,count,changed,items:[{elementId,oldTypeId,newTypeId}]} or {ok:false,error:{code,message}}.",
+    "Change elements to type typeId (category-checked, read back, rolled back on mismatch). Returns {ok,count,changed,items} or {ok:false,error}.",
     {
       ids: z.array(z.union([z.number(), z.string()])).min(1).describe("Element ids to retype"),
       typeId: z.union([z.number(), z.string()]).describe("Target type element id"),
@@ -13,7 +13,7 @@ export function registerChangeElementTypeTool(server: McpServer) {
         .number()
         .int()
         .optional()
-        .describe("Optional guard: fail with identity_conflict before writing if the number of ids differs"),
+        .describe("Fail with identity_conflict if ids.length differs"),
     },
     async (args) => runTypedCommand("change_element_type", args)
   );

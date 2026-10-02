@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerCreateLineBasedElementTool(server: McpServer) {
   server.tool(
     "create_line_based_element",
-    "Create one or more line-based elements in Revit such as walls, beams, or pipes. Supports batch creation with detailed parameters including family type ID, start and end points, thickness, height, and level information. All units are in millimeters (mm).",
+    "Batch-create line-based elements (walls, beams, ducts) from a start/end line, type id, thickness, height and level. mm.",
     {
       data: z
         .array(
@@ -20,14 +21,14 @@ export function registerCreateLineBasedElementTool(server: McpServer) {
             locationLine: z
               .object({
                 p0: z.object({
-                  x: z.number().describe("X coordinate of start point"),
-                  y: z.number().describe("Y coordinate of start point"),
-                  z: z.number().describe("Z coordinate of start point"),
+                  x: z.number(),
+                  y: z.number(),
+                  z: z.number(),
                 }),
                 p1: z.object({
-                  x: z.number().describe("X coordinate of end point"),
-                  y: z.number().describe("Y coordinate of end point"),
-                  z: z.number().describe("Z coordinate of end point"),
+                  x: z.number(),
+                  y: z.number(),
+                  z: z.number(),
                 }),
               })
               .describe("The line defining the element's location"),
@@ -60,7 +61,7 @@ export function registerCreateLineBasedElementTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

@@ -1,34 +1,35 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerCreateDimensionsTool(server: McpServer) {
   server.tool(
     "create_dimensions",
-    "Create dimension annotations in the current Revit view. Supports dimensioning between elements (walls, doors, windows) by element IDs, or between two points with automatic reference detection. All coordinates are in millimeters (mm).",
+    "Create dimensions in the current view between element ids, or between two points with auto reference detection. mm.",
     {
       dimensions: z
         .array(
           z.object({
             startPoint: z
               .object({
-                x: z.number().describe("X coordinate in mm"),
-                y: z.number().describe("Y coordinate in mm"),
-                z: z.number().describe("Z coordinate in mm"),
+                x: z.number(),
+                y: z.number(),
+                z: z.number(),
               })
               .describe("Start point of the dimension line (mm)"),
             endPoint: z
               .object({
-                x: z.number().describe("X coordinate in mm"),
-                y: z.number().describe("Y coordinate in mm"),
-                z: z.number().describe("Z coordinate in mm"),
+                x: z.number(),
+                y: z.number(),
+                z: z.number(),
               })
               .describe("End point of the dimension line (mm)"),
             linePoint: z
               .object({
-                x: z.number().describe("X coordinate in mm"),
-                y: z.number().describe("Y coordinate in mm"),
-                z: z.number().describe("Z coordinate in mm"),
+                x: z.number(),
+                y: z.number(),
+                z: z.number(),
               })
               .optional()
               .describe(
@@ -79,7 +80,7 @@ export function registerCreateDimensionsTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

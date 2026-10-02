@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerCreatePointBasedElementTool(server: McpServer) {
   server.tool(
     "create_point_based_element",
-    "Create one or more point-based elements in Revit such as doors, windows, or furniture. Supports batch creation with detailed parameters including family type ID, position, dimensions, and level information. All units are in millimeters (mm).",
+    "Batch-create point-based elements (doors, windows, furniture) at a location with type id, size, level and rotation. mm.",
     {
       data: z
         .array(
@@ -19,9 +20,9 @@ export function registerCreatePointBasedElementTool(server: McpServer) {
               .describe("The ID of the family type to create."),
             locationPoint: z
               .object({
-                x: z.number().describe("X coordinate"),
-                y: z.number().describe("Y coordinate"),
-                z: z.number().describe("Z coordinate"),
+                x: z.number(),
+                y: z.number(),
+                z: z.number(),
               })
               .describe(
                 "The position coordinates where the element will be placed"
@@ -69,7 +70,7 @@ export function registerCreatePointBasedElementTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };
