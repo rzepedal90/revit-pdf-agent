@@ -122,6 +122,31 @@
       "commandName": "create_dimensions",
       "description": "Create dimension annotations between elements or points in the current view",
       "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "get_elements_info",
+      "description": "Read-back numeric info for up to 200 element ids (type, location, bbox, elevations, offsets, material, source key)",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "find_elements",
+      "description": "Find elements by category/type/level/view/source key/parameter filters with paging and field projection",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "query_where",
+      "description": "Count and list ids of elements matching a parameter predicate, optionally grouped by type/level/category",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "set_source_key",
+      "description": "Write stable source keys to elements via Extensible Storage",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "find_by_source_key",
+      "description": "Find elements by exact source keys and/or prefix, reporting duplicates",
+      "assemblyPath": "RevitMCPCommandSet.dll"
     }
   ]
 }
