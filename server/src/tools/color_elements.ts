@@ -5,7 +5,7 @@ import { withRevitConnection } from "../utils/ConnectionManager.js";
 export function registerColorElementsTool(server: McpServer) {
   server.tool(
       "color_elements",
-      "Color elements in the current view based on a category and parameter value. Each unique parameter value gets assigned a distinct color.",
+      "Color elements of a category in the current view, one color per unique parameter value.",
       {
         categoryName: z
             .string()

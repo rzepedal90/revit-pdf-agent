@@ -1,10 +1,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerGetCurrentViewInfoTool(server: McpServer) {
   server.tool(
     "get_current_view_info",
-    "获取 Revit 当前活动视图的详细信息，包括视图类型、名称、比例等属性。",
+    "Get details of the active Revit view: type, name, scale and other properties.",
     {},
     async (args, extra) => {
       try {
@@ -16,7 +17,7 @@ export function registerGetCurrentViewInfoTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

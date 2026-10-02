@@ -18,7 +18,7 @@ const RoomSchema = z.object({
 export function registerStoreRoomDataTool(server: McpServer) {
   server.tool(
     "store_room_data",
-    "Store or update room metadata for a specific Revit project in the local database. Rooms are linked to a project by project name. The project must exist before storing room data.",
+    "Store/update room metadata in the local DB, linked to an existing project by name.",
     {
       project_name: z.string().describe("The name of the Revit project this room belongs to"),
       rooms: z.array(RoomSchema).describe("Array of room data to store")
@@ -36,7 +36,7 @@ export function registerStoreRoomDataTool(server: McpServer) {
                 text: JSON.stringify({
                   success: false,
                   error: `Project "${args.project_name}" not found. Please store project data first using store_project_data tool.`
-                }, null, 2)
+                })
               }
             ],
             isError: true
@@ -58,7 +58,7 @@ export function registerStoreRoomDataTool(server: McpServer) {
                 project_name: args.project_name,
                 total_rooms: rooms.length,
                 rooms_stored: count
-              }, null, 2)
+              })
             }
           ]
         };
@@ -70,7 +70,7 @@ export function registerStoreRoomDataTool(server: McpServer) {
               text: JSON.stringify({
                 success: false,
                 error: error.message
-              }, null, 2)
+              })
             }
           ],
           isError: true

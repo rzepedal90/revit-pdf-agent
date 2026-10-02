@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerDeleteElementTool(server: McpServer) {
   server.tool(
@@ -25,7 +26,7 @@ export function registerDeleteElementTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

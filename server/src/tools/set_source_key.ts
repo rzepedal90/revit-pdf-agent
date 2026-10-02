@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerSetSourceKeyTool(server: McpServer) {
   server.tool(
@@ -25,7 +26,7 @@ export function registerSetSourceKeyTool(server: McpServer) {
         const response = await withRevitConnection(async (revitClient) => {
           return await revitClient.sendCommand("set_source_key", args);
         });
-        return { content: [{ type: "text", text: JSON.stringify(response) }] };
+        return { content: [{ type: "text", text: toText(response) }] };
       } catch (error) {
         return {
           content: [

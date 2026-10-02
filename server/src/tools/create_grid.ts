@@ -1,21 +1,22 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerCreateGridTool(server: McpServer) {
   server.tool(
     "create_grid",
-    "Create a grid system in Revit with smart spacing generation. Supports both X-axis (vertical) and Y-axis (horizontal) grids with customizable naming styles (alphabetic A,B,C or numeric 1,2,3). All units are in millimeters (mm).",
+    "Create a grid system: X and Y grid lines with spacing, extents and alphabetic/numeric naming. mm.",
     {
       xCount: z
         .number()
         .int()
         .positive()
-        .describe("Number of grid lines along X-axis (vertical grids)"),
+        .describe("Count of X-axis (vertical) grids"),
       xSpacing: z
         .number()
         .positive()
-        .describe("Spacing between X-axis grid lines in millimeters"),
+        .describe("X grid spacing (mm)"),
       xStartLabel: z
         .string()
         .default("A")
@@ -23,16 +24,16 @@ export function registerCreateGridTool(server: McpServer) {
       xNamingStyle: z
         .enum(["alphabetic", "numeric"])
         .default("alphabetic")
-        .describe("Naming style for X-axis: 'alphabetic' (A,B,C...) or 'numeric' (1,2,3...)"),
+        .describe("alphabetic (A,B,C) or numeric (1,2,3)"),
       yCount: z
         .number()
         .int()
         .positive()
-        .describe("Number of grid lines along Y-axis (horizontal grids)"),
+        .describe("Count of Y-axis (horizontal) grids"),
       ySpacing: z
         .number()
         .positive()
-        .describe("Spacing between Y-axis grid lines in millimeters"),
+        .describe("Y grid spacing (mm)"),
       yStartLabel: z
         .string()
         .default("1")
@@ -40,35 +41,35 @@ export function registerCreateGridTool(server: McpServer) {
       yNamingStyle: z
         .enum(["alphabetic", "numeric"])
         .default("numeric")
-        .describe("Naming style for Y-axis: 'alphabetic' (A,B,C...) or 'numeric' (1,2,3...)"),
+        .describe("alphabetic (A,B,C) or numeric (1,2,3)"),
       xExtentMin: z
         .number()
         .default(0)
-        .describe("Minimum extent along X-axis in mm (where Y-axis grids start)"),
+        .describe("X extent min (mm)"),
       xExtentMax: z
         .number()
         .default(50000)
-        .describe("Maximum extent along X-axis in mm (where Y-axis grids end)"),
+        .describe("X extent max (mm)"),
       yExtentMin: z
         .number()
         .default(0)
-        .describe("Minimum extent along Y-axis in mm (where X-axis grids start)"),
+        .describe("Y extent min (mm)"),
       yExtentMax: z
         .number()
         .default(50000)
-        .describe("Maximum extent along Y-axis in mm (where X-axis grids end)"),
+        .describe("Y extent max (mm)"),
       elevation: z
         .number()
         .default(0)
-        .describe("Elevation for grid lines in mm (Z-coordinate)"),
+        .describe("Elevation Z (mm)"),
       xStartPosition: z
         .number()
         .default(0)
-        .describe("Starting position for first X-axis grid in mm"),
+        .describe("First X grid position (mm)"),
       yStartPosition: z
         .number()
         .default(0)
-        .describe("Starting position for first Y-axis grid in mm"),
+        .describe("First Y grid position (mm)"),
     },
     async (args, extra) => {
       const params = {
@@ -98,7 +99,7 @@ export function registerCreateGridTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

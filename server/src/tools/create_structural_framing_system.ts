@@ -1,29 +1,30 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerCreateStructuralFramingSystemTool(server: McpServer) {
   server.tool(
     "create_structural_framing_system",
-    "Create a structural beam framing system in Revit. Generates beams within a rectangular boundary at fixed spacing intervals. The system uses Revit's BeamSystem API to create properly connected beam layouts. All units are in millimeters (mm).",
+    "Create a beam system in a rectangular boundary at fixed spacing (Revit BeamSystem). mm.",
     {
       levelName: z
         .string()
         .describe(
-          "Name of the level to place the beam system on (e.g., 'Level 1', 'Level 2'). If the level doesn't exist but follows 'Level N' pattern, it will be auto-created at 4000mm floor-to-floor height."
+          "Level name; a missing 'Level N' is auto-created (4000 mm story height)"
         ),
       xMin: z
         .number()
-        .describe("Minimum X coordinate of the rectangular boundary in millimeters"),
+        .describe("Boundary Minimum X (mm)"),
       xMax: z
         .number()
-        .describe("Maximum X coordinate of the rectangular boundary in millimeters"),
+        .describe("Boundary Maximum X (mm)"),
       yMin: z
         .number()
-        .describe("Minimum Y coordinate of the rectangular boundary in millimeters"),
+        .describe("Boundary Minimum Y (mm)"),
       yMax: z
         .number()
-        .describe("Maximum Y coordinate of the rectangular boundary in millimeters"),
+        .describe("Boundary Maximum Y (mm)"),
       spacing: z
         .number()
         .positive()
@@ -32,37 +33,37 @@ export function registerCreateStructuralFramingSystemTool(server: McpServer) {
         .enum(["bottom", "right", "top", "left"])
         .default("bottom")
         .describe(
-          "Which edge defines the beam direction. Beams run perpendicular to this edge. 'bottom'/'top' = beams run in Y direction, 'left'/'right' = beams run in X direction."
+          "Beams run perpendicular to this edge (bottom/top = Y direction, left/right = X)"
         ),
       layoutRule: z
         .enum(["fixed_distance"])
         .default("fixed_distance")
         .describe(
-          "Layout rule type. Currently only 'fixed_distance' is supported."
+          "Only fixed_distance"
         ),
       justify: z
         .enum(["beginning", "center", "end", "directionline"])
         .default("center")
         .describe(
-          "Beam justification within the layout. 'center' places beams symmetrically, 'beginning'/'end' align to boundary edges."
+          "Beam justification"
         ),
       beamTypeName: z
         .string()
         .optional()
         .describe(
-          "Name of the beam family type to use (e.g., 'W10x12', 'W-Wide Flange'). If not provided, the first available structural framing type will be used."
+          "Beam type name (default: first structural framing type)"
         ),
       elevation: z
         .number()
         .default(0)
         .describe(
-          "Elevation offset from the level in millimeters. Use this to adjust the vertical position of the beam system."
+          "Offset from level (mm)"
         ),
       is3d: z
         .boolean()
         .default(false)
         .describe(
-          "Whether to create a 3D beam system. Set to true for sloped or non-planar systems."
+          "3D system for sloped/non-planar layouts"
         ),
     },
     async (args, extra) => {
@@ -93,7 +94,7 @@ export function registerCreateStructuralFramingSystemTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

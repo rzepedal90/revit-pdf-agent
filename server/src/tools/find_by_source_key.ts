@@ -2,6 +2,7 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerFindBySourceKeyTool(server: McpServer) {
   server.tool(
@@ -17,7 +18,7 @@ export function registerFindBySourceKeyTool(server: McpServer) {
         const response = await withRevitConnection(async (revitClient) => {
           return await revitClient.sendCommand("find_by_source_key", args);
         });
-        return { content: [{ type: "text", text: JSON.stringify(response) }] };
+        return { content: [{ type: "text", text: toText(response) }] };
       } catch (error) {
         return {
           content: [

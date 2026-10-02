@@ -1,33 +1,22 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerOperateElementTool(server: McpServer) {
   server.tool(
     "operate_element",
-    "Operate on Revit elements by performing actions such as select, selectionBox, setColor, setTransparency, delete, hide, etc.",
+    "Apply an action to Revit elements by id: select, set color/transparency, hide, isolate, delete, etc.",
     {
       data: z
         .object({
-          elementIds: z
-            .array(z
-              .number()
-              .describe("A valid Revit element ID to operate on")
-            )
-            .describe("Array of Revit element IDs to perform the specified action on"),
+          elementIds: z.array(z.number()).describe("Element ids to act on"),
           action: z
             .string()
-            .describe("The operation to perform on elements. Valid values: Select, SelectionBox, SetColor, SetTransparency, Delete, Hide, TempHide, Isolate, Unhide, ResetIsolate, Highlight. Select enables direct element selection in the active view. SelectionBox allows selection of elements by drawing a rectangular window in the view. SetColor changes the color of elements (requires elementColor parameter). SetTransparency adjusts element transparency (requires transparencyValue parameter). Highlight is a convenience operation that sets elements to red color (internally calls SetColor with red). Delete permanently removes elements from the project. Hide makes elements invisible in the current view until explicitly shown. TempHide temporarily hides elements in the current view. Isolate displays only selected elements while hiding all others. Unhide reveals previously hidden elements. ResetIsolate restores normal visibility to the view."),
-          transparencyValue: z
-            .number()
-            .default(50)
-            .describe("Transparency value (0-100) for SetTransparency action. Higher values increase transparency."),
-          colorValue: z
-            .array(z.number())
-            .default([255, 0, 0])
-            .describe("RGB color values for SetColor action. Default is red [255,0,0].")
-        })
-        .describe("Parameters for operating on Revit elements with specific actions"),
+            .describe("One of: Select, SelectionBox, SetColor (uses colorValue), SetTransparency (uses transparencyValue), Delete (permanent), Hide, TempHide, Isolate, Unhide, ResetIsolate, Highlight (red)"),
+          transparencyValue: z.number().default(50).describe("0-100 for SetTransparency"),
+          colorValue: z.array(z.number()).default([255, 0, 0]).describe("RGB for SetColor")
+        }),
     },
     async (args, extra) => {
       const params = args;
@@ -44,7 +33,7 @@ export function registerOperateElementTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

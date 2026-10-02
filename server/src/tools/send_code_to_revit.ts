@@ -1,29 +1,30 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 const transactionModeSchema = z
   .enum(["auto", "none"])
   .default("auto")
   .describe(
-    "How the snippet should interact with Revit transactions. Use 'auto' to wrap the snippet in a transaction, or 'none' when the called code manages its own transactions."
+    "'auto' wraps the code in a transaction; 'none' if it manages its own"
   );
 
 export function registerSendCodeToRevitTool(server: McpServer) {
   server.tool(
     "send_code_to_revit",
-    "Send C# code to Revit for execution. The code will be inserted into a template with access to the Revit Document and parameters. Your code should be written to work within the Execute method of the template.",
+    "Run C# in Revit. The code is inserted into a template Execute method with Document and parameters in scope.",
     {
       code: z
         .string()
         .describe(
-          "The C# code to execute in Revit. This code will be inserted into the Execute method of a template with access to Document and parameters."
+          "C# body for the Execute method"
         ),
       parameters: z
         .array(z.string())
         .optional()
         .describe(
-          "Optional execution parameters that will be passed to your code"
+          "Parameters passed to the code"
         ),
       transactionMode: transactionModeSchema,
     },
@@ -43,11 +44,7 @@ export function registerSendCodeToRevitTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: `Code execution successful!\nResult: ${JSON.stringify(
-                response,
-                null,
-                2
-              )}`,
+              text: `Code execution successful!\nResult: ${toText(response)}`,
             },
           ],
         };

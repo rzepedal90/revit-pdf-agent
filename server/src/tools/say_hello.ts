@@ -1,16 +1,17 @@
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { withRevitConnection } from "../utils/ConnectionManager.js";
+import { toText } from "../utils/toolResult.js";
 
 export function registerSayHelloTool(server: McpServer) {
   server.tool(
     "say_hello",
-    "Display a greeting dialog in Revit. Useful for testing the connection between Claude and Revit.",
+    "Show a greeting dialog in Revit (connection test).",
     {
       message: z
         .string()
         .optional()
-        .describe("Optional custom message to display in the dialog. Defaults to 'Hello MCP!'"),
+        .describe("Message to show (default 'Hello MCP!')"),
     },
     async (args, extra) => {
       const params = args;
@@ -23,7 +24,7 @@ export function registerSayHelloTool(server: McpServer) {
           content: [
             {
               type: "text",
-              text: JSON.stringify(response, null, 2),
+              text: toText(response),
             },
           ],
         };

@@ -109,6 +109,25 @@ If using a release ZIP, the command set is pre-installed inside the plugin. For 
 3. Copy the built DLLs into that folder
 4. Copy `command.json` (from repo root) into `Commands/RevitMCPCommandSet/`
 
+## Tool profiles
+
+Every tool definition is sent to the model on each request. To cut that footprint, enable only the tools you need:
+
+| Variable | Meaning |
+|---|---|
+| `REVIT_MCP_PROFILE` | Comma-separated profile names. Default `all` (every tool). Unknown names log a warning and fall back to `all`. |
+| `REVIT_MCP_TOOLS` | Optional explicit allowlist of tool names; unioned with any profiles given. |
+| `REVIT_MCP_MAX_TEXT` | Max characters per text result (default 60000, `0` = unlimited); longer results end with a `…truncated N chars` marker. |
+
+Profiles (all include `core` = `say_hello`, `get_current_view_info`, `get_selected_elements`, `send_code_to_revit`):
+`core`, `pdf_modeling_analyze` (read/analysis tools for PDF-to-Revit planning), `pdf_modeling_execute` (find/query, `set_source_key`, `build_elements`, `set_parameter[_batch]`, `duplicate_family_type`, `change_element_type`, `create_grid`), `qa` (read-only verification), `architecture`, `annotation`, `data`. Definitions live in `server/src/tools/profiles.ts`. The server logs the enabled tools to stderr at startup.
+
+```bash
+claude mcp add mcp-server-for-revit -e REVIT_MCP_PROFILE=pdf_modeling_execute -- node server/build/index.js
+```
+
+`npm test` (in `server/`) checks profile resolution; `npm run measure` prints the byte size of the active tool definitions.
+
 ## Supported Tools
 
 | Tool | Description |

@@ -6,7 +6,7 @@ import { parameterValueSchema, unitsDescription } from "./set_parameter.js";
 export function registerDuplicateFamilyTypeTool(server: McpServer) {
   server.tool(
     "duplicate_family_type",
-    "Duplicate a family/system type under a new name and optionally set its (type) parameters, reading every one back. Fails with name_collision if newName already exists in that family (unless reuseIfIdentical and all given params already match, then the existing type is returned). Returns {ok,typeId,name,familyName,created,reused,readback[]} or {ok:false,error:{code,message}}.",
+    "Duplicate a family/system type under newName and optionally set type parameters (read back). name_collision if it exists, unless reuseIfIdentical and params match. Returns {ok,typeId,name,created,reused,readback[]}.",
     {
       sourceTypeId: z.union([z.number(), z.string()]).optional().describe("Type element id to copy"),
       familyName: z.string().optional().describe("Alternative to sourceTypeId: family name"),
