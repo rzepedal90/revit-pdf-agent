@@ -64,6 +64,26 @@
       "assemblyPath": "RevitMCPCommandSet.dll"
     },
     {
+      "commandName": "set_parameter",
+      "description": "Set one parameter with readback verification",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "set_parameter_batch",
+      "description": "Set many parameters atomically with readback verification",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "duplicate_family_type",
+      "description": "Duplicate a type under a new name and set its parameters",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "change_element_type",
+      "description": "Change the type of elements with compatibility check and readback",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
       "commandName": "ai_element_filter",
       "description": "AI element filter for querying elements by criteria",
       "assemblyPath": "RevitMCPCommandSet.dll"
