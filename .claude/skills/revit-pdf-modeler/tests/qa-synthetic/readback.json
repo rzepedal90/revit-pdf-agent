@@ -1,0 +1,252 @@
+{
+ "count": 7,
+ "items": [
+  {
+   "id": 1001,
+   "uniqueId": "uid-1001",
+   "category": "Structural Foundations",
+   "family": "Zapata Rect",
+   "type": "F1 2000x1000x600",
+   "material": "H-30",
+   "sourceKey": "9999-QA/F1/001",
+   "location": {
+    "point": [
+     1000,
+     2000,
+     0
+    ],
+    "rotationDeg": 0
+   },
+   "bbox": {
+    "min": [
+     0,
+     1500,
+     -1650
+    ],
+    "max": [
+     2000,
+     2500,
+     -1050
+    ]
+   },
+   "topElevation": -1050,
+   "bottomElevation": -1650,
+   "levelName": "Nivel Fundacion",
+   "levelElevation": -1650
+  },
+  {
+   "id": 1002,
+   "uniqueId": "uid-1002",
+   "category": "Structural Foundations",
+   "family": "Zapata Rect",
+   "type": "F1 2000x1000x600",
+   "material": "H-30",
+   "sourceKey": "9999-QA/F4a/001",
+   "location": {
+    "point": [
+     6000,
+     2000,
+     0
+    ],
+    "rotationDeg": 0
+   },
+   "bbox": {
+    "min": [
+     5000,
+     1500,
+     -1650
+    ],
+    "max": [
+     7000,
+     2500,
+     -1050
+    ]
+   },
+   "topElevation": -1050,
+   "bottomElevation": -1650,
+   "levelName": "Nivel Fundacion",
+   "levelElevation": -1650
+  },
+  {
+   "id": 1003,
+   "uniqueId": "uid-1003",
+   "category": "Structural Foundations",
+   "family": "Zapata Rect",
+   "type": "F4a-B 1000x1000x600",
+   "material": "H-30",
+   "sourceKey": "9999-QA/F4a/002",
+   "location": {
+    "point": [
+     6500,
+     3000,
+     0
+    ],
+    "rotationDeg": 0
+   },
+   "bbox": {
+    "min": [
+     6000,
+     2500,
+     -1650
+    ],
+    "max": [
+     7000,
+     3500,
+     -1050
+    ]
+   },
+   "topElevation": -1050,
+   "bottomElevation": -1650,
+   "levelName": "Nivel Fundacion",
+   "levelElevation": -1650
+  },
+  {
+   "id": 1004,
+   "uniqueId": "uid-1004",
+   "category": "Structural Foundations",
+   "family": "Zapata Rect",
+   "type": "FV 1200x600x300",
+   "material": "H-30",
+   "sourceKey": "9999-QA/FV/001",
+   "location": {
+    "point": [
+     3500,
+     -1000,
+     0
+    ],
+    "rotationDeg": 90
+   },
+   "bbox": {
+    "min": [
+     3200,
+     -1600,
+     -1650
+    ],
+    "max": [
+     3800,
+     -400,
+     -1350
+    ]
+   },
+   "topElevation": -1350,
+   "bottomElevation": -1650,
+   "levelName": "Nivel Fundacion",
+   "levelElevation": -1650
+  },
+  {
+   "id": 1005,
+   "uniqueId": "uid-1005",
+   "category": "Structural Columns",
+   "family": "Columna Rect",
+   "type": "C1 400x400",
+   "material": "H-30",
+   "sourceKey": "9999-QA/C1/001",
+   "location": {
+    "point": [
+     1000,
+     2000,
+     0
+    ],
+    "rotationDeg": 0
+   },
+   "bbox": {
+    "min": [
+     800,
+     1800,
+     -1050
+    ],
+    "max": [
+     1200,
+     2200,
+     0
+    ]
+   },
+   "topElevation": 0,
+   "bottomElevation": -1050,
+   "offsets": {
+    "baseLevel": "Nivel Fundacion",
+    "baseOffset": 600,
+    "topLevel": "Nivel 1",
+    "topOffset": 0
+   }
+  },
+  {
+   "id": 1006,
+   "uniqueId": "uid-1006",
+   "category": "Structural Columns",
+   "family": "Columna Rect",
+   "type": "C1 400x400",
+   "material": "H-30",
+   "sourceKey": "9999-QA/C1/002",
+   "location": {
+    "point": [
+     6000,
+     2000,
+     0
+    ],
+    "rotationDeg": 0
+   },
+   "bbox": {
+    "min": [
+     5800,
+     1800,
+     -1050
+    ],
+    "max": [
+     6200,
+     2200,
+     0
+    ]
+   },
+   "topElevation": 0,
+   "bottomElevation": -1050,
+   "offsets": {
+    "baseLevel": "Nivel Fundacion",
+    "baseOffset": 600,
+    "topLevel": "Nivel 1",
+    "topOffset": 0
+   }
+  },
+  {
+   "id": 1007,
+   "uniqueId": "uid-1007",
+   "category": "Structural Framing",
+   "family": "Viga Rect",
+   "type": "V1 250x400",
+   "material": "H-30",
+   "sourceKey": "9999-QA/V1/001",
+   "location": {
+    "start": [
+     1000,
+     2000,
+     -100
+    ],
+    "end": [
+     6000,
+     2000,
+     -100
+    ]
+   },
+   "bbox": {
+    "min": [
+     1000,
+     1875,
+     -500
+    ],
+    "max": [
+     6000,
+     2125,
+     -100
+    ]
+   },
+   "topElevation": -100,
+   "bottomElevation": -500,
+   "offsets": {
+    "startZOffset": -100,
+    "endZOffset": -100,
+    "zJustification": "Top"
+   }
+  }
+ ],
+ "notFound": []
+}
