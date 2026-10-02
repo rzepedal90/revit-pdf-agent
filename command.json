@@ -122,6 +122,16 @@
       "commandName": "create_dimensions",
       "description": "Create dimension annotations between elements or points in the current view",
       "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "get_spatial_reference",
+      "description": "Read-only model-space placement data (mm and ft) for grids, image instances, elements and a view frame",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
+      "commandName": "get_view_image",
+      "description": "Export a view to PNG (optionally cropped) with pixel-to-model mapping",
+      "assemblyPath": "RevitMCPCommandSet.dll"
     }
   ]
 }

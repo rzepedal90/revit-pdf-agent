@@ -65,6 +65,14 @@
       <Reference Include="System.Net.Http" />
     </ItemGroup>
 
+    <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+      <Reference Include="System.Drawing" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' != 'net48'">
+      <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+    </ItemGroup>
+
     <Target Name="DeployCommandSet" AfterTargets="Build">
         <PropertyGroup>
             <PluginAddInRoot>$(ProjectDir)..\plugin\bin\AddIn $(RevitVersion) $(Configuration)\revit_mcp_plugin\</PluginAddInRoot>
