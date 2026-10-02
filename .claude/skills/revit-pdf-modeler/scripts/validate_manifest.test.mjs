@@ -150,3 +150,53 @@ test('CLI exit codes and messages', () => {
   assert.match(arr.stderr, /top-level JSON value must be an object/);
   assert.equal(run(join(dir, 'missing.json')).status, 1);
 });
+
+// --- build-ready conventions (PLAN/EXECUTE) ---
+import {manifestWarnings} from './validate_manifest.mjs';
+const S301 = join(here, '..', 'tests', 's301-synthetic', 'manifest.json');
+const exec = (mutation) => {
+  const m = JSON.parse(readFileSync(S301, 'utf8'));
+  mutation(m);
+  return validateManifest(m);
+};
+const row = (m, key) => m.element_manifest.find((r) => r.source_key === key);
+
+test('synthetic S301 EXECUTE fixture is valid, also as PLAN', () => {
+  assert.deepEqual(exec(() => {}), []);
+  assert.deepEqual(exec((m) => { m.mode = 'PLAN'; m.manifest_frozen = false; m.execution_policy.commit_authorized = false; }), []);
+});
+
+test('ANALYZE is lenient about datum_table (warning only); PLAN/EXECUTE require it', () => {
+  assert.deepEqual(validateManifest(sample()), []);
+  assert.ok(manifestWarnings(sample()).some((w) => w.includes('datum_table')));
+  assert.ok(any(exec((m) => { delete m.datum_table; }), 'datum_table must be an object'));
+  assert.ok(any(exec((m) => { delete m.datum_table.sf_mm; }), 'datum_table.sf_mm'));
+  assert.ok(any(exec((m) => { m.datum_table.npt_mm = 0.5; }), 'datum_table.npt_mm'));
+  assert.ok(any(exec((m) => { delete m.datum_table.rules.beam; }), 'datum_table.rules.beam'));
+  assert.ok(any(exec((m) => { m.datum_table.rules.wall.top = ''; }), 'datum_table.rules.wall'));
+  assert.ok(any(exec((m) => { delete m.coordinate_basis.transform_to_model; }), 'transform_to_model'));
+});
+
+test('resolved rows need per-kind geometry and z fields as integer mm', () => {
+  assert.ok(any(exec((m) => { row(m, 'S301/F1/001').geometry_mm.x = 10.5; }), 'geometry_mm.x/y must be integers'));
+  assert.ok(any(exec((m) => { delete row(m, 'S301/F1/001').geometry_mm.rotation_deg; }), 'rotation_deg'));
+  assert.ok(any(exec((m) => { delete row(m, 'S301/F1/001').z_constraints.level; }), 'z_constraints.level'));
+  assert.ok(any(exec((m) => { row(m, 'S301/C1/001').z_constraints.top_offset_mm = '0'; }), 'top_offset_mm'));
+  assert.ok(any(exec((m) => { delete row(m, 'S301/V1/001').z_constraints.z_justification; }), 'z_justification'));
+  assert.ok(any(exec((m) => { row(m, 'S301/V1/001').geometry_mm.end = [1, 2, 3]; }), 'start/end'));
+  assert.ok(any(exec((m) => { row(m, 'S301/V1/001').geometry_mm.end = [1.5, 2]; }), 'start/end'));
+  assert.ok(any(exec((m) => { row(m, 'S301/M1/001').z_constraints.top_level = 'NPT'; }), 'exactly one of'));
+  assert.ok(any(exec((m) => { delete row(m, 'S301/M1/001').z_constraints.height_mm; }), 'exactly one of'));
+  assert.ok(any(exec((m) => { delete row(m, 'S301/grid/A').name; }), 'name is required for grids'));
+  assert.ok(any(exec((m) => { row(m, 'S301/F1/001').type_key = 'nope'; }), 'type_key does not reference'));
+  assert.ok(any(exec((m) => { row(m, 'S301/F1/001').execution_action = 'none'; }), "execution_action 'create'"));
+  assert.ok(any(exec((m) => { row(m, 'S301/F4a/001').group = ''; }), 'group'));
+});
+
+test('resolved type rows need family, type, integer dimensions_mm and material', () => {
+  const type = (m) => m.type_manifest[0];
+  assert.ok(any(exec((m) => { delete type(m).family; }), '.family is required'));
+  assert.ok(any(exec((m) => { delete type(m).type; }), '.type is required'));
+  assert.ok(any(exec((m) => { type(m).dimensions_mm.b = 20.5; }), 'dimensions_mm'));
+  assert.ok(any(exec((m) => { delete type(m).material; }), '.material is required'));
+});

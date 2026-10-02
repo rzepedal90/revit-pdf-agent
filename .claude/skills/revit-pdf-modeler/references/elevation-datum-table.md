@@ -1,7 +1,7 @@
 <!-- Original to this repository (lessons from the S301 benchmark run); structure follows pdftorevit-agent (MIT, Copyright (c) 2026 Le Phu; based on KenLP/RevitMCPServer). -->
 # Elevation / datum table (mandatory before any build)
 
-Fill this table from the details and sections during ANALYZE. Store it as `datum_table` in the manifest. Every row: `name`, `value_mm` (integer, relative to the stated `level_ref`), `level_ref` (Revit level name/ElementId or "absolute"), `evidence` (sheet + detail), `status` (`resolved`/`blocked`).
+Fill this table from the details and sections during ANALYZE. Store it as `datum_table` in the manifest: an object with integer `npt_mm`, `sf_mm`, per-category `rules` (`footing|column|beam|wall` each with `top` and `bottom`) and an evidence `rows` array (schema in [manifest-schema.md](manifest-schema.md#datum-table); validator enforces it in PLAN/EXECUTE). Every `rows` entry: `name`, `value_mm` (integer, relative to the stated `level_ref`), `level_ref` (Revit level name/ElementId or "absolute"), `evidence` (sheet + detail), `status` (`resolved`/`blocked`).
 
 | Datum | Meaning | Typical use |
 |---|---|---|

@@ -1,5 +1,7 @@
 // Portions adapted from pdftorevit-agent (https://github.com/BadAstronaut/pdftorevit-agent), MIT, Copyright (c) 2026 Le Phu; based on KenLP/RevitMCPServer.
 // See THIRD_PARTY_NOTICES.md at the repository root for the full license text.
+// LEGACY: written for THEIR addin API. Superseded in this repo by compile_build_payload.mjs + revit_rpc.mjs (build_elements dry-run/commit);
+// kept only as a design reference for per-element paced execution.
 // NOTE (our MCP): runPaced and readBatched assume THEIR addin API: `callBatch` (batched command execution with dry-run),
 // `get_element_info`, `update_where`/`query_where` atomic steps and their create commands (place_family_instance, create_beam...).
 // They are PENDING an adapter onto OUR MCP tools (batch with dryRun, get_elements_info, query_where, set_parameter). Logic is unchanged.
