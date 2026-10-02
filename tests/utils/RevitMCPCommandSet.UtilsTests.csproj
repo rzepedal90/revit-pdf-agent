@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Plain unit tests for the Revit-independent utilities. No Revit needed; not part of the solution. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>RevitMCPCommandSet.UtilsTests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\commandset\Utils\ParamUtil.cs" Link="Linked\ParamUtil.cs" />
+    <Compile Include="..\..\commandset\Utils\RevitCommandException.cs" Link="Linked\RevitCommandException.cs" />
+    <Compile Include="..\..\commandset\Utils\UnitConversionPolicy.cs" Link="Linked\UnitConversionPolicy.cs" />
+    <Compile Include="..\..\commandset\Utils\ExpectedCountPolicy.cs" Link="Linked\ExpectedCountPolicy.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="xunit.v3" Version="1.*" />
+  </ItemGroup>
+
+</Project>
