@@ -74,6 +74,11 @@
       "assemblyPath": "RevitMCPCommandSet.dll"
     },
     {
+      "commandName": "build_elements",
+      "description": "Deterministic idempotent bulk builder for footings, columns, beams, walls and grids with explicit vertical constraints, dry-run preview and source-key upserts",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
       "commandName": "duplicate_family_type",
       "description": "Duplicate a type under a new name and set its parameters",
       "assemblyPath": "RevitMCPCommandSet.dll"
