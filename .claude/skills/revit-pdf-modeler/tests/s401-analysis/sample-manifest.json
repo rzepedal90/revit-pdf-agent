@@ -1,0 +1,125 @@
+{
+  "schema_version": "1.0",
+  "mode": "ANALYZE",
+  "manifest_frozen": false,
+  "target": {
+    "rvt_path": "C:/BIM/Example/MODELING TEST STR.rvt",
+    "rvt_title": "MODELING TEST STR",
+    "revit_version": "2027",
+    "mcp_version": "0.8.31",
+    "active_view": "Nivel Fundación",
+    "unit_system": "METRIC",
+    "phase": null,
+    "workset": null,
+    "design_option": null
+  },
+  "sources": [
+    {
+      "source_id": "1725-S401-r0",
+      "role": "primary",
+      "path": "C:/BIM/Example/PDFsam_1725-S401_PL FUNDACIONES.pdf",
+      "sha256": "41BAED6247ED7226811E1BBDA3E6F868A1529B381314B3525845EDF6E22AC965",
+      "sheet": "1725-S401",
+      "revision": "0",
+      "units": "cm",
+      "registered_in_revit": true,
+      "positional_authority": true,
+      "human_aligned": true,
+      "human_scaled": true,
+      "pinned_expected": true,
+      "immutable": true,
+      "drawing_regions": [
+        {"name": "foundation plan", "scale": "1:125"},
+        {"name": "foundation and beam details", "scale": "1:25"}
+      ]
+    }
+  ],
+  "scope": {
+    "categories": [
+      "grids",
+      "structural_columns",
+      "structural_framing",
+      "structural_foundations",
+      "structural_walls"
+    ],
+    "rebar": false,
+    "excluded_categories": ["reinforcement"]
+  },
+  "documentation": {
+    "dimensions": {
+      "enabled": false
+    }
+  },
+  "coordinate_basis": {
+    "origin": "s8a x E",
+    "positive_x": "toward s16",
+    "positive_y": "toward E from A",
+    "coordinate_policy": "project coordinates relative to human anchors",
+    "anchors": [
+      {"name": "s8a", "element_id": 182458, "unique_id": "23e70676-b6d8-40f3-bc38-7a553dd4bc9f-0002c8ba"},
+      {"name": "E", "element_id": 271655, "unique_id": "3f49e4f4-657c-49b9-9c8c-cd192ace9aba-00042527"}
+    ],
+    "registration_checks": []
+  },
+  "levels": [
+    {"name": "Nivel Fundación", "element_id": 247762, "elevation_mm": -1650},
+    {"name": "Nivel 1°", "element_id": 13071, "elevation_mm": 0}
+  ],
+  "type_manifest": [
+    {
+      "source_key": "1725-S401/TYPE/F1",
+      "status": "blocked",
+      "category": "structural_foundations",
+      "action": "blocked",
+      "family": "Fundación aislada H.A. (con relleno)",
+      "type": "S4-S401-F1 260x260x60",
+      "dimensions_mm": {"length": 2600, "width": 2600, "thickness": 600},
+      "material": "H-30",
+      "insertion_plane": null,
+      "evidence": ["1725-S401 foundation detail F1"]
+    }
+  ],
+  "element_manifest": [
+    {
+      "source_key": "1725-S401/F11/001",
+      "status": "blocked",
+      "category": "structural_foundations",
+      "type_key": null,
+      "geometry_mm": null,
+      "z_constraints": null,
+      "host_supports": [],
+      "phase": null,
+      "workset": null,
+      "execution_action": "none",
+      "evidence": ["1725-S401 plan callout Y/S407"]
+    }
+  ],
+  "clarifications": [
+    {
+      "id": "COLUMN-001",
+      "topic": "main column dimensions and applicability",
+      "status": "open",
+      "affected_source_keys": [],
+      "evidence": ["human states nominal dimension is 700 mm; shape and locations remain unconfirmed"],
+      "proposal": {"dimensions_mm": [700, 700]},
+      "question": "Confirm that the main columns are 700 x 700 mm and identify the grid locations to which this applies."
+    }
+  ],
+  "execution_policy": {
+    "commit_authorized": false,
+    "expected_revit_changes": 0,
+    "primary_pdf_immutable": true,
+    "anchor_grids_immutable": true,
+    "allow_delete_existing": false,
+    "allow_modify_existing_types": false
+  },
+  "acceptance_tests": {
+    "expected_counts": {},
+    "dimension_tolerance_mm": 1,
+    "overlay_tolerance_mm": null,
+    "duplicate_policy": "no duplicate source keys",
+    "warning_delta_policy": "no unexpected increase",
+    "blocked_source_keys": ["1725-S401/F11/001"],
+    "excluded_source_keys": []
+  }
+}

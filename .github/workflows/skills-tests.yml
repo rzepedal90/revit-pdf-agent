@@ -1,0 +1,30 @@
+name: Skills tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.claude/skills/**'
+      - '.github/workflows/skills-tests.yml'
+  pull_request:
+    paths:
+      - '.claude/skills/**'
+      - '.github/workflows/skills-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  skills:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test Claude Code skills (no dependencies)
+        run: node --test ".claude/skills/**/*.test.mjs"

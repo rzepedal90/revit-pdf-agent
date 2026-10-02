@@ -1,0 +1,31 @@
+[
+  {
+    "id": "SCOPE-001",
+    "topic": "model categories",
+    "expected_question_contains": ["grids", "structural columns", "structural framing", "structural foundations"]
+  },
+  {
+    "id": "COLUMN-001",
+    "topic": "main column dimensions and applicability",
+    "proposal_mm": [700, 700],
+    "must_ask_if_square": true,
+    "must_ask_locations": true
+  },
+  {
+    "id": "F11-001",
+    "topic": "F11 geometry",
+    "missing_source": "S407"
+  },
+  {
+    "id": "BOUNDARY-001",
+    "topic": "Sector 3 boundary ownership"
+  },
+  {
+    "id": "VF2-Z-001",
+    "topic": "VF2 vertical placement rule"
+  },
+  {
+    "id": "FV-001",
+    "topic": "FV classification and wall constraints"
+  }
+]
