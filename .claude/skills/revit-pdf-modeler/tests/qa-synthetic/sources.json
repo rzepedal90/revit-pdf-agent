@@ -1,0 +1,57 @@
+{
+ "total": 7,
+ "truncated": false,
+ "matches": [
+  {
+   "id": 1001,
+   "uniqueId": "uid-1001",
+   "category": "Structural Foundations",
+   "type": "F1 2000x1000x600",
+   "sourceKey": "9999-QA/F1/001"
+  },
+  {
+   "id": 1002,
+   "uniqueId": "uid-1002",
+   "category": "Structural Foundations",
+   "type": "F1 2000x1000x600",
+   "sourceKey": "9999-QA/F4a/001"
+  },
+  {
+   "id": 1003,
+   "uniqueId": "uid-1003",
+   "category": "Structural Foundations",
+   "type": "F4a-B 1000x1000x600",
+   "sourceKey": "9999-QA/F4a/002"
+  },
+  {
+   "id": 1004,
+   "uniqueId": "uid-1004",
+   "category": "Structural Foundations",
+   "type": "FV 1200x600x300",
+   "sourceKey": "9999-QA/FV/001"
+  },
+  {
+   "id": 1005,
+   "uniqueId": "uid-1005",
+   "category": "Structural Columns",
+   "type": "C1 400x400",
+   "sourceKey": "9999-QA/C1/001"
+  },
+  {
+   "id": 1006,
+   "uniqueId": "uid-1006",
+   "category": "Structural Columns",
+   "type": "C1 400x400",
+   "sourceKey": "9999-QA/C1/002"
+  },
+  {
+   "id": 1007,
+   "uniqueId": "uid-1007",
+   "category": "Structural Framing",
+   "type": "V1 250x400",
+   "sourceKey": "9999-QA/V1/001"
+  }
+ ],
+ "notFound": [],
+ "duplicates": []
+}
