@@ -24,7 +24,7 @@ One JSON object with `schema_version` `"1.0"`. Validate with `node scripts/valid
 }
 ```
 
-Recommended extra top-level field (not enforced by the validator): `datum_table` - array of `{name, value_mm, level_ref, evidence, status}` (see [elevation-datum-table.md](elevation-datum-table.md)).
+Additional top-level field `datum_table` (object; see [Datum table](#datum-table) and [elevation-datum-table.md](elevation-datum-table.md)): **required and validated in `PLAN`/`EXECUTE`**; in `ANALYZE` a missing or incomplete table only prints `WARNING:` lines on stderr.
 
 ## Target
 
@@ -39,6 +39,8 @@ Each: `source_id`, `role` (`primary`|`supplementary`), `path`, `sha256`, `sheet`
 `categories` (non-empty; keys from the input contract), `rebar: false`, `excluded_categories`.
 
 ## Coordinate basis
+
+Manifest coordinates are drawing/grid-relative integer mm. `coordinate_basis.transform_to_model = {"originMm": {"x": int, "y": int}, "rotationDeg": number}` maps them to model coordinates (required in `PLAN`/`EXECUTE`); the compiler passes it unchanged as `build_elements.transform`.
 
 When `grids` is in scope require `origin`, `positive_x`, `positive_y`, `coordinate_policy`, `anchors` (each with name plus ElementId/UniqueId when known) and a `registration_checks` list.
 
@@ -55,6 +57,36 @@ Type rows add `action` (`reuse|duplicate|load` when resolved; `blocked` when blo
 Element rows add `type_key`, geometry in integer mm, Z constraints (tie to `datum_table` rows), host/support relationships, phase/workset, and `execution_action`. `blocked`/`excluded` rows must use `execution_action: "none"`. Every physical element (anchor stem, pedestal, muerto, FV pad, beam link, each abutting footing component) has its own row.
 
 Stable keys look like `1725-S401/F3/017`. Never use ElementIds as source keys; record ElementId and UniqueId after commit as runtime results.
+
+## Datum table
+
+`datum_table` is an object (required in `PLAN`/`EXECUTE`):
+
+```json
+{"npt_mm": 0, "sf_mm": -2650, "og_mm": -300, "top_of_footing_mm": -1650,
+ "rules": {"footing": {"top": "...", "bottom": "..."}, "column": {}, "beam": {}, "wall": {}},
+ "rows": [{"name": "N.P.T.", "value_mm": 0, "level_ref": "NPT", "evidence": "S301 sec A", "status": "resolved"}]}
+```
+
+`npt_mm` and `sf_mm` are integers (mm); `og_mm` and `top_of_footing_mm` are optional integers. `rules.<footing|column|beam|wall>` each need non-blank `top` and `bottom` (a text rule or datum reference explaining how that category's top/bottom Z is derived; it justifies the rows' `z_constraints`). `rows` is the evidence trail: recommended, not validated.
+
+## Element and type geometry conventions (normative; maps 1:1 onto `build_elements`)
+
+All lengths are **integer mm**; `rotation_deg` is a number; level fields are Revit level names. Resolved element rows in `PLAN`/`EXECUTE` must use `execution_action: "create"`.
+
+| Category (kind) | `geometry_mm` | `z_constraints` | build_elements fields |
+|---|---|---|---|
+| `structural_foundations` (footing) | `{x, y, rotation_deg}` | `{level, offset_mm}` | `point, rotationDeg, level, offsetMm` |
+| `structural_columns` (column) | `{x, y, rotation_deg}` | `{base_level, base_offset_mm, top_level, top_offset_mm}` | `point, rotationDeg, baseLevel, baseOffsetMm, topLevel, topOffsetMm` |
+| `structural_framing` (beam) | `{start:[x,y], end:[x,y]}` | `{level, start_offset_mm, end_offset_mm, z_justification}` (`top`, `center` or `bottom`) | `start, end, level, startOffsetMm, endOffsetMm, zJustification` |
+| `structural_walls` (wall) | `{start:[x,y], end:[x,y]}` | `{base_level, base_offset_mm}` plus exactly one of `{top_level, top_offset_mm}` or `{height_mm}` | `start, end, baseLevel, baseOffsetMm`, then `topLevel+topOffsetMm` or `heightMm`; `structural` from row `structural` (default true); `locationLine` always `center` |
+| `grids` (grid) | `{start:[x,y], end:[x,y]}` plus row `name` | none | `name, start, end` |
+
+Optional row fields: `group` (string), `structural_usage` (beam), `structural` (wall), `parameters` (`[{name,value,units}]`, passed through).
+
+**Type linkage.** Non-grid rows carry `type_key` naming a resolved `type_manifest` row. Resolved type rows must have `family`, `type`, `dimensions_mm` (non-empty object of integer mm), `material` and `action` (`reuse|duplicate|load`). The compiler sends `familyName = family`, `typeName = type` (typeIds are unknown until runtime).
+
+**Combined / L-shaped footings.** Model each rectangular component as its own abutting row (own `source_key`; own `type_key` where sizes differ) and give all components the same `group` (e.g. `"F4a"`). Never substitute a bounding box.
 
 ## Clarifications
 

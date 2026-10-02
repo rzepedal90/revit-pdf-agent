@@ -9,29 +9,40 @@ Before any mutation, use read-only tools to confirm the exact RVT path/title, Re
 
 ## Tool mapping (our MCP) and fallbacks
 
-"Planned" tools are being added in parallel; use them when the live tool list shows them, otherwise use the fallback. A fallback is always explicit, reviewed C# through `send_code_to_revit` (injected variable `document`; `transactionMode: auto` wraps in one transaction, `none` when the snippet manages its own transactions/groups). Convert mm to feet inside C#. If no fallback is acceptable, the step is **blocked**.
+All tools below exist in this repository's MCP server. Still list the live tools first; a tool missing from the live list (older plugin build) falls back to reviewed C# through `send_code_to_revit` (injected variable `document`; `transactionMode: auto` wraps in one transaction, `none` when the snippet manages its own transactions/groups; convert mm to feet inside C#). If no fallback is acceptable, the step is **blocked**.
 
-| Need | Use | Fallback / status |
+| Need | Use | Fallback |
 |---|---|---|
-| Spatial transform (PDF placement, grid curves, pinned, view frame) | `get_spatial_reference` (planned) | read-only `send_code_to_revit`; else spatial steps blocked |
-| View/ground truth images | `get_view_image` (planned), `get_current_view_info` | none needed for numerical QA |
-| Read elements / parameters | `get_elements_info` (planned), `get_current_view_elements`, `ai_element_filter`, `get_selected_elements` | `send_code_to_revit` read-only |
-| Filtered queries by parameter | `find_elements`, `query_where` (planned) | `ai_element_filter` + C# |
+| Spatial transform (PDF placement, grid curves, pinned, view frame) | `get_spatial_reference` | read-only `send_code_to_revit`; else blocked |
+| View / ground-truth images | `get_view_image`, `get_current_view_info` | none needed for numerical QA |
+| Read elements / parameters | `get_elements_info` (batched), `get_current_view_elements`, `ai_element_filter`, `get_selected_elements` | read-only C# |
+| Filtered queries | `find_elements`, `query_where` | `ai_element_filter` + C# |
 | Loaded family types | `get_available_family_types` | - |
-| Grids / levels | `create_grid`, `create_level` (mm) | - |
-| Footings, columns, pedestals, stems, pads (point-based) | `create_point_based_element` (mm) | - |
-| Beams, walls (line-based) | `create_line_based_element` (mm) | - |
+| **Bulk creation from a frozen manifest** (grids, footings, columns, beams, walls; dry-run, upsert by source key) | **`build_elements`** via `scripts/compile_build_payload.mjs` + `scripts/revit_rpc.mjs` | `create_grid`, `create_point_based_element`, `create_line_based_element` one element at a time |
+| Levels | `create_level` | - |
 | Slabs (surface) | `create_surface_based_element` | blocked until thickness/boundary confirmed |
-| Source key tagging / lookup | `set_source_key`, `find_by_source_key` (planned) | external source-key to UniqueId map file + exact geometry/type match; optionally Comments via C# |
-| Set parameters (offsets, tops, materials) | `set_parameter`, `set_parameter_batch` (planned) | `operate_element` where it applies; else C# |
-| Duplicate a type | `duplicate_family_type` (planned) | C# `FamilySymbol.Duplicate(name)` then set parameters |
-| Change an instance's type | `change_element_type` (planned) | C# `element.ChangeTypeId` |
-| Dry-run / batched atomic stages | `batch` with `dryRun` (later) | C# in `transactionMode: none` using a `TransactionGroup` that is `RollBack()`ed for preview; or no MCP dry-run: review payloads offline and commit one element first |
-| Rotation of placed instances | - | `create_point_based_element` rotation if supported; else C# `ElementTransformUtils.RotateElement` (separate step, record it) |
-| Save / export / reopen | - | C# `document.Save()`; do not take screen control |
+| Source key tagging / lookup | `set_source_key`, `find_by_source_key` | external key-to-UniqueId map + exact geometry/type match |
+| Set parameters (offsets, tops, materials) | `set_parameter`, `set_parameter_batch` (verified writes) | `operate_element` where it applies; else C# |
+| Duplicate a type | `duplicate_family_type` | C# `FamilySymbol.Duplicate(name)` then set parameters |
+| Change an instance's type | `change_element_type` | C# `element.ChangeTypeId` |
+| Save / export / reopen | - | C# `document.Save()`; no screen control |
 | Dimensions | not supported (no stable-reference resolver) | blocked |
 
 Never mutate with unreviewed C#. Show the snippet in the plan, run it on one element, read the result back, then proceed.
+
+## EXECUTE flow (script path, token-efficient)
+
+Payloads and readbacks stay on disk and never pass through the model context; only bounded summaries (counts, warnings, first errors) are printed. Paths are relative to `.claude/skills/revit-pdf-modeler/scripts/`.
+
+1. Validate: `node validate_manifest.mjs manifest.json` (must print `VALID`; mode EXECUTE, `manifest_frozen` true).
+2. Compile: `node compile_build_payload.mjs manifest.json --out-dir out/payloads`. Produces one `build_payload_NNN_<stage>.json` per stage chunk (grids, footings, columns, beams, walls; at most 500 elements each, ordered by source key), `compile_summary.json` and the canonical `manifestHash`. Blocked/excluded rows are skipped and listed.
+3. Types first: resolve every `familyName`/`typeName` against `get_available_family_types`; create missing ones with `duplicate_family_type` (see Type generation). Never proceed with a missing type.
+4. Dry run each payload in order: `node revit_rpc.mjs build_elements out/payloads/build_payload_001_grid.json --allow-write --out out/dry_001.json`. The client refuses a payload that is not `dryRun:true`.
+5. Review warnings/errors from the printed summary (`node json_summary.mjs out/dry_001.json warnings 10` for detail). Stop on any error or unexpected warning; fix the manifest, not the payload.
+6. Commit the identical payload: same command plus `--commit` (sends `dryRun:false`, nothing else changes; `manifestHash` is unchanged). Stop at the first failed chunk.
+7. QA: read every element back (`get_elements_info` / `find_by_source_key` through `revit_rpc.mjs`, output to a file) and run `node qa_model.mjs manifest.json readback.json` for counts, coordinates, elevations vs the datum table, types and rotations. Overlay images are diagnostic only.
+
+Reruns are safe: `mode: "upsert"` updates or skips matched source keys.
 
 ## Immutable content
 

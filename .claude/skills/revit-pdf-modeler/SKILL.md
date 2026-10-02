@@ -21,7 +21,7 @@ Never interpret the PDF while creating elements. Finish interpretation, clarific
 
 ## Hard rules (lessons from a real S301 run that missed elements)
 
-1. **Elevation/datum table first.** Before any build, fill a table from the details/sections: N.P.T. (finished floor), O.G. / N.O.G. (original/natural ground), S.F. (foundation underside), top of footings, top of pedestals/columns, top of beams, blinding (hormigon pobre) top/bottom. Every value cites its sheet/detail. Store it in the manifest as `datum_table` (rows `{name, value_mm, level_ref, evidence}`). Missing entries become clarifications; no Z is ever guessed or inherited from a family default. See [references/elevation-datum-table.md](references/elevation-datum-table.md).
+1. **Elevation/datum table first.** Before any build, fill a table from the details/sections: N.P.T. (finished floor), O.G. / N.O.G. (original/natural ground), S.F. (foundation underside), top of footings, top of pedestals/columns, top of beams, blinding (hormigon pobre) top/bottom. Every value cites its sheet/detail. Store it in the manifest as `datum_table` (object: `npt_mm`, `sf_mm`, per-category `rules` with `top`/`bottom`, evidence `rows`; required by the validator in PLAN/EXECUTE). Missing entries become clarifications; no Z is ever guessed or inherited from a family default. See [references/elevation-datum-table.md](references/elevation-datum-table.md).
 2. **Exact footprints.** Combined, eccentric or L-shaped footings need the exact footprint, insertion point and axis offsets. If the family is rectangular, model the footing as abutting rectangular components (one manifest row each, e.g. `F4a` = two components), never as a bounding-box substitute. Width x length alone is insufficient.
 3. **Every small element has its own row.** Anchor stems, pedestals, muertos (dead-men), FV pads, beam links, stubs: one manifest row per physical element. The manifest states **expected counts per category** in `acceptance_tests.expected_counts`, and these are cross-checked against label counts found in the PDF text (e.g. count of `F4`, `P1`, `V1` labels). A mismatch is a clarification, not something to round off. The validator fails when resolved row counts differ from `expected_counts`.
 4. **Missing types rule.** If a required type is not in the project: duplicate the *closest validated* family type and configure it from the drawing details (`duplicate_family_type` when available, otherwise reviewed C# via `send_code_to_revit`). Never reuse a mismatched type "because it is close". Never edit an existing type used elsewhere. If information is missing, ask.
@@ -60,10 +60,22 @@ Exit 0 prints `VALID`; exit 1 prints `INVALID` and one `- message` per failure. 
 
 ## Execute through the Revit MCP
 
-For `PLAN`/`EXECUTE` read [references/execution-policy.md](references/execution-policy.md) (tool mapping and fallbacks), [references/performance-execution.md](references/performance-execution.md) and [references/reusable-execution.md](references/reusable-execution.md). Verify the live MCP tool list/schemas rather than assuming a tool exists. Order: types, grids, foundations, columns/pedestals/stems, framing, walls, metadata (source keys), QA. Use a verified fallback or stop; never improvise unreviewed C#.
+For `PLAN`/`EXECUTE` read [references/execution-policy.md](references/execution-policy.md) (real tool mapping, fallbacks, EXECUTE flow), [references/performance-execution.md](references/performance-execution.md) and [references/reusable-execution.md](references/reusable-execution.md). Element rows follow the per-category geometry conventions in [references/manifest-schema.md](references/manifest-schema.md), which map 1:1 onto the `build_elements` MCP tool.
+
+EXECUTE flow (all scripts in `.claude/skills/revit-pdf-modeler/scripts/`):
+
+1. `node validate_manifest.mjs manifest.json` -> `VALID`.
+2. `node compile_build_payload.mjs manifest.json --out-dir out/payloads` -> deterministic staged payload files (grids, footings, columns, beams, walls; at most 500 elements per file; blocked/excluded rows skipped and listed) plus the canonical `manifestHash`.
+3. Ensure types exist (`get_available_family_types`; `duplicate_family_type` for missing ones).
+4. `node revit_rpc.mjs build_elements out/payloads/<file>.json --allow-write --out out/dry.json` (dry run; the client rejects non-`dryRun:true` payloads).
+5. Review warnings/errors in the bounded summary; stop on anything unexpected.
+6. Same command plus `--commit` to commit the identical payload, chunk by chunk, stopping at the first failure.
+7. QA: read back through `revit_rpc.mjs` (`get_elements_info`, `find_by_source_key`) into a file, then `node qa_model.mjs manifest.json readback.json`.
+
+**This script path saves LLM tokens**: manifests, payloads and readbacks never pass through the model context; only bounded summaries (counts, first warnings/errors) do. `revit_rpc.mjs` only runs read-only commands (`get_*`, `find_*`, `query_where`, `say_hello`) unless `--allow-write` is given. Use the individual MCP tools (`create_*`, `set_parameter`, `send_code_to_revit`) only for fallbacks and one-off fixes, and never improvise unreviewed C#.
 
 ## Validate
 
 Check exact counts per category against `expected_counts`, types, dimensions, coordinates, elevations vs the datum table, materials, rotations, support/contact, duplicate source keys, and warning delta. Query every created element back (ElementId + UniqueId). A rerun must update or skip matched elements, never duplicate. Use the overlay (`get_view_image`) only as a diagnostic after numerical QA passes.
 
-The helper scripts in `scripts/` (`execution_runner.mjs`, `execution_state.mjs`, `qa_invariants.mjs`) were written for another addin API (`callBatch`, `get_element_info`, `update_where`) and need an adapter onto this MCP before use; their logic (idempotency, ledger reconcile, fail-closed QA) is the design reference. `json_summary.mjs` and `validate_manifest.mjs` work as-is. Run all skill tests with `node --test ".claude/skills/**/*.test.mjs"`.
+Scripts in `scripts/`: `validate_manifest.mjs`, `compile_build_payload.mjs`, `revit_rpc.mjs`, `json_summary.mjs` (current, tested), `qa_model.mjs` (manifest + readback numerical QA). `execution_runner.mjs`, `execution_state.mjs` and `qa_invariants.mjs` are **legacy**: written for another addin API (`callBatch`, `get_element_info`, `update_where`); keep them only as design references (idempotency, ledger reconcile, fail-closed QA). Run all skill tests with `node --test ".claude/skills/**/*.test.mjs"`.

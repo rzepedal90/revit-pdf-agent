@@ -235,7 +235,131 @@ export function validateManifest(data) {
   }
 
   validateExpectedCounts(data, errors);
+  if (mode === 'PLAN' || mode === 'EXECUTE') validateExecutableGeometry(data, errors);
   return errors;
+}
+
+// ---- Build-ready conventions (PLAN/EXECUTE); see references/manifest-schema.md ----------------------------------
+export const KIND_BY_CATEGORY = {
+  grids: 'grid', structural_foundations: 'footing', structural_columns: 'column',
+  structural_framing: 'beam', structural_walls: 'wall',
+};
+const Z_JUSTIFICATIONS = new Set(['top', 'center', 'bottom']);
+export const DATUM_RULE_KINDS = ['footing', 'column', 'beam', 'wall'];
+const isInt = Number.isInteger;
+const isXY = (v) => Array.isArray(v) && v.length === 2 && v.every(isInt);
+
+/** ANALYZE leniency: non-fatal notes (currently a missing/incomplete datum_table). */
+export function manifestWarnings(data) {
+  const warnings = [];
+  if (isObj(data) && data.mode === 'ANALYZE') {
+    const probe = [];
+    validateDatumTable(data.datum_table, probe);
+    for (const message of probe) warnings.push(`datum_table (required before PLAN/EXECUTE): ${message}`);
+  }
+  return warnings;
+}
+
+export function validateDatumTable(table, errors) {
+  if (!isObj(table)) {
+    errors.push('datum_table must be an object {npt_mm, sf_mm, rules:{footing|column|beam|wall:{top,bottom}}}');
+    return;
+  }
+  for (const key of ['npt_mm', 'sf_mm']) {
+    if (!isInt(table[key])) errors.push(`datum_table.${key} must be an integer (mm)`);
+  }
+  for (const key of ['og_mm', 'top_of_footing_mm']) {
+    if (has(table, key) && !isInt(table[key])) errors.push(`datum_table.${key} must be an integer (mm)`);
+  }
+  const rules = table.rules;
+  if (!isObj(rules)) {
+    errors.push('datum_table.rules must be an object with per-category top/bottom rules');
+    return;
+  }
+  for (const kind of DATUM_RULE_KINDS) {
+    const rule = rules[kind];
+    if (!isObj(rule) || !nonBlankString(rule.top) || !nonBlankString(rule.bottom)) {
+      errors.push(`datum_table.rules.${kind} must have non-blank 'top' and 'bottom' (text rule or datum reference)`);
+    }
+  }
+}
+
+function validateExecutableGeometry(data, errors) {
+  validateDatumTable(data.datum_table, errors);
+  const basis = isObj(data.coordinate_basis) ? data.coordinate_basis : {};
+  const t = basis.transform_to_model;
+  if (!isObj(t) || !isObj(t.originMm) || !isInt(t.originMm.x) || !isInt(t.originMm.y) ||
+      typeof t.rotationDeg !== 'number' || !Number.isFinite(t.rotationDeg)) {
+    errors.push('coordinate_basis.transform_to_model must be {originMm:{x,y integers}, rotationDeg number}');
+  }
+  const types = new Map();
+  if (Array.isArray(data.type_manifest)) {
+    data.type_manifest.forEach((row, i) => {
+      if (!isObj(row)) return;
+      types.set(row.source_key, row);
+      if (row.status !== 'resolved') return;
+      const label = `type_manifest[${i}] (${row.source_key})`;
+      if (!nonBlankString(row.family)) errors.push(`${label}.family is required`);
+      if (!nonBlankString(row.type)) errors.push(`${label}.type is required`);
+      if (!isObj(row.dimensions_mm) || Object.keys(row.dimensions_mm).length === 0 ||
+          !Object.values(row.dimensions_mm).every(isInt)) {
+        errors.push(`${label}.dimensions_mm must be a non-empty object of integer mm`);
+      }
+      if (!nonBlankString(row.material)) errors.push(`${label}.material is required`);
+    });
+  }
+  if (!Array.isArray(data.element_manifest)) return;
+  data.element_manifest.forEach((row, i) => {
+    if (!isObj(row) || row.status !== 'resolved') return;
+    const kind = KIND_BY_CATEGORY[row.category];
+    const label = `element_manifest[${i}] (${row.source_key})`;
+    if (!kind) {
+      errors.push(`${label}: category ${pyRepr(row.category)} has no build_elements mapping`);
+      return;
+    }
+    if (row.execution_action !== 'create') errors.push(`${label}: resolved rows must use execution_action 'create'`);
+    if (has(row, 'group') && !nonBlankString(row.group)) errors.push(`${label}.group must be a non-blank string`);
+    if (kind === 'grid') {
+      if (!nonBlankString(row.name)) errors.push(`${label}.name is required for grids`);
+    } else {
+      const type = types.get(row.type_key);
+      if (!type) errors.push(`${label}.type_key does not reference a type_manifest row`);
+      else if (type.status !== 'resolved') errors.push(`${label}.type_key references a ${type.status} type`);
+    }
+    const g = row.geometry_mm;
+    const z = row.z_constraints;
+    if (!isObj(g)) { errors.push(`${label}.geometry_mm must be an object`); return; }
+    if (kind === 'footing' || kind === 'column') {
+      if (!isInt(g.x) || !isInt(g.y)) errors.push(`${label}.geometry_mm.x/y must be integers (mm)`);
+      if (typeof g.rotation_deg !== 'number' || !Number.isFinite(g.rotation_deg)) {
+        errors.push(`${label}.geometry_mm.rotation_deg must be a number`);
+      }
+    } else if (!isXY(g.start) || !isXY(g.end)) {
+      errors.push(`${label}.geometry_mm.start/end must be [x,y] integer mm`);
+    }
+    if (kind === 'grid') return;
+    if (!isObj(z)) { errors.push(`${label}.z_constraints must be an object`); return; }
+    const need = (names, ints) => {
+      for (const n of names) {
+        const ok = ints.includes(n) ? isInt(z[n]) : nonBlankString(z[n]);
+        if (!ok) errors.push(`${label}.z_constraints.${n} must be ${ints.includes(n) ? 'an integer (mm)' : 'a level name'}`);
+      }
+    };
+    if (kind === 'footing') need(['level', 'offset_mm'], ['offset_mm']);
+    if (kind === 'column') need(['base_level', 'base_offset_mm', 'top_level', 'top_offset_mm'], ['base_offset_mm', 'top_offset_mm']);
+    if (kind === 'beam') {
+      need(['level', 'start_offset_mm', 'end_offset_mm'], ['start_offset_mm', 'end_offset_mm']);
+      if (!Z_JUSTIFICATIONS.has(z.z_justification)) errors.push(`${label}.z_constraints.z_justification must be top|center|bottom`);
+    }
+    if (kind === 'wall') {
+      need(['base_level', 'base_offset_mm'], ['base_offset_mm']);
+      const hasTop = has(z, 'top_level') || has(z, 'top_offset_mm');
+      const hasHeight = has(z, 'height_mm');
+      if (hasTop === hasHeight) errors.push(`${label}.z_constraints needs exactly one of (top_level+top_offset_mm) or height_mm`);
+      else if (hasTop) need(['top_level', 'top_offset_mm'], ['top_offset_mm']);
+      else if (!isInt(z.height_mm) || z.height_mm <= 0) errors.push(`${label}.z_constraints.height_mm must be a positive integer (mm)`);
+    }
+  });
 }
 
 /**
@@ -345,6 +469,7 @@ export function main(argv = process.argv.slice(2)) {
     return 1;
   }
   const errors = validateManifest(data);
+  for (const warning of manifestWarnings(data)) process.stderr.write(`WARNING: ${warning}\n`);
   if (errors.length) {
     console.log('INVALID');
     for (const error of errors) console.log(`- ${error}`);

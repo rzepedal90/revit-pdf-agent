@@ -1,0 +1,507 @@
+{
+  "schema_version": "1.0",
+  "mode": "EXECUTE",
+  "manifest_frozen": true,
+  "target": {
+    "rvt_path": "C:/BIM/Example/MODELING TEST STR.rvt",
+    "rvt_title": "SYNTHETIC S301",
+    "revit_version": "2027",
+    "mcp_version": "0.8.31",
+    "active_view": "Nivel Fundación",
+    "unit_system": "METRIC",
+    "phase": null,
+    "workset": null,
+    "design_option": null
+  },
+  "sources": [
+    {
+      "source_id": "1725-S301-r0",
+      "role": "primary",
+      "path": "C:/BIM/Example/PDFsam_1725-S401_PL FUNDACIONES.pdf",
+      "sha256": "41BAED6247ED7226811E1BBDA3E6F868A1529B381314B3525845EDF6E22AC965",
+      "sheet": "1725-S301",
+      "revision": "0",
+      "units": "cm",
+      "registered_in_revit": true,
+      "positional_authority": true,
+      "human_aligned": true,
+      "human_scaled": true,
+      "pinned_expected": true,
+      "immutable": true,
+      "drawing_regions": [
+        {
+          "name": "foundation plan",
+          "scale": "1:125"
+        },
+        {
+          "name": "foundation and beam details",
+          "scale": "1:25"
+        }
+      ]
+    }
+  ],
+  "scope": {
+    "categories": [
+      "grids",
+      "structural_columns",
+      "structural_framing",
+      "structural_foundations",
+      "structural_walls"
+    ],
+    "rebar": false,
+    "excluded_categories": [
+      "reinforcement"
+    ]
+  },
+  "documentation": {
+    "dimensions": {
+      "enabled": false
+    }
+  },
+  "coordinate_basis": {
+    "origin": "s8a x E",
+    "positive_x": "toward s16",
+    "positive_y": "toward E from A",
+    "coordinate_policy": "project coordinates relative to human anchors",
+    "anchors": [
+      {
+        "name": "s8a",
+        "element_id": 182458,
+        "unique_id": "23e70676-b6d8-40f3-bc38-7a553dd4bc9f-0002c8ba"
+      },
+      {
+        "name": "E",
+        "element_id": 271655,
+        "unique_id": "3f49e4f4-657c-49b9-9c8c-cd192ace9aba-00042527"
+      }
+    ],
+    "registration_checks": [],
+    "transform_to_model": {
+      "originMm": {
+        "x": 1000,
+        "y": 2000
+      },
+      "rotationDeg": 0
+    }
+  },
+  "levels": [
+    {
+      "name": "NPT",
+      "elevation_mm": 0
+    }
+  ],
+  "type_manifest": [
+    {
+      "source_key": "S301/T/F1",
+      "status": "resolved",
+      "category": "structural_foundations",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "action": "reuse",
+      "family": "Zapata_Rect",
+      "type": "F1 2000x2000x1000",
+      "dimensions_mm": {
+        "b": 2000,
+        "l": 2000,
+        "h": 1000
+      },
+      "material": "H25"
+    },
+    {
+      "source_key": "S301/T/F4a",
+      "status": "resolved",
+      "category": "structural_foundations",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "action": "reuse",
+      "family": "Zapata_Rect",
+      "type": "F4a 1500x3000x1000",
+      "dimensions_mm": {
+        "b": 1500,
+        "l": 3000,
+        "h": 1000
+      },
+      "material": "H25"
+    },
+    {
+      "source_key": "S301/T/C700",
+      "status": "resolved",
+      "category": "structural_columns",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "action": "reuse",
+      "family": "Columna_Rect",
+      "type": "C 700x700",
+      "dimensions_mm": {
+        "b": 700,
+        "h": 700
+      },
+      "material": "H30"
+    },
+    {
+      "source_key": "S301/T/V1",
+      "status": "resolved",
+      "category": "structural_framing",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "action": "reuse",
+      "family": "Viga_Rect",
+      "type": "V1 300x600",
+      "dimensions_mm": {
+        "b": 300,
+        "h": 600
+      },
+      "material": "H25"
+    },
+    {
+      "source_key": "S301/T/M1",
+      "status": "resolved",
+      "category": "structural_walls",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "action": "reuse",
+      "family": "Muro_Basico",
+      "type": "M1 200",
+      "dimensions_mm": {
+        "thickness": 200
+      },
+      "material": "H25"
+    }
+  ],
+  "element_manifest": [
+    {
+      "source_key": "S301/grid/B",
+      "status": "resolved",
+      "category": "grids",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "geometry_mm": {
+        "start": [
+          0,
+          6000
+        ],
+        "end": [
+          12000,
+          6000
+        ]
+      },
+      "execution_action": "create",
+      "name": "B"
+    },
+    {
+      "source_key": "S301/grid/A",
+      "status": "resolved",
+      "category": "grids",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "geometry_mm": {
+        "start": [
+          0,
+          0
+        ],
+        "end": [
+          12000,
+          0
+        ]
+      },
+      "execution_action": "create",
+      "name": "A"
+    },
+    {
+      "source_key": "S301/grid/1",
+      "status": "resolved",
+      "category": "grids",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "geometry_mm": {
+        "start": [
+          0,
+          -1000
+        ],
+        "end": [
+          0,
+          7000
+        ]
+      },
+      "execution_action": "create",
+      "name": "1"
+    },
+    {
+      "source_key": "S301/F1/001",
+      "status": "resolved",
+      "category": "structural_foundations",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "S301/T/F1",
+      "geometry_mm": {
+        "x": 0,
+        "y": 0,
+        "rotation_deg": 0
+      },
+      "z_constraints": {
+        "level": "NPT",
+        "offset_mm": -2650
+      },
+      "execution_action": "create"
+    },
+    {
+      "source_key": "S301/F4a/001",
+      "status": "resolved",
+      "category": "structural_foundations",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "S301/T/F4a",
+      "geometry_mm": {
+        "x": 6000,
+        "y": 0,
+        "rotation_deg": 0
+      },
+      "z_constraints": {
+        "level": "NPT",
+        "offset_mm": -2650
+      },
+      "execution_action": "create",
+      "group": "F4a"
+    },
+    {
+      "source_key": "S301/F4a/002",
+      "status": "resolved",
+      "category": "structural_foundations",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "S301/T/F4a",
+      "geometry_mm": {
+        "x": 6750,
+        "y": 1500,
+        "rotation_deg": 90
+      },
+      "z_constraints": {
+        "level": "NPT",
+        "offset_mm": -2650
+      },
+      "execution_action": "create",
+      "group": "F4a"
+    },
+    {
+      "source_key": "S301/C1/001",
+      "status": "resolved",
+      "category": "structural_columns",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "S301/T/C700",
+      "geometry_mm": {
+        "x": 0,
+        "y": 0,
+        "rotation_deg": 0
+      },
+      "z_constraints": {
+        "base_level": "NPT",
+        "base_offset_mm": -1650,
+        "top_level": "NPT",
+        "top_offset_mm": 0
+      },
+      "execution_action": "create"
+    },
+    {
+      "source_key": "S301/C1/002",
+      "status": "resolved",
+      "category": "structural_columns",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "S301/T/C700",
+      "geometry_mm": {
+        "x": 6000,
+        "y": 0,
+        "rotation_deg": 0
+      },
+      "z_constraints": {
+        "base_level": "NPT",
+        "base_offset_mm": -1650,
+        "top_level": "NPT",
+        "top_offset_mm": 0
+      },
+      "execution_action": "create"
+    },
+    {
+      "source_key": "S301/V1/001",
+      "status": "resolved",
+      "category": "structural_framing",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "S301/T/V1",
+      "geometry_mm": {
+        "start": [
+          0,
+          0
+        ],
+        "end": [
+          6000,
+          0
+        ]
+      },
+      "z_constraints": {
+        "level": "NPT",
+        "start_offset_mm": 0,
+        "end_offset_mm": 0,
+        "z_justification": "top"
+      },
+      "execution_action": "create"
+    },
+    {
+      "source_key": "S301/M1/001",
+      "status": "resolved",
+      "category": "structural_walls",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "S301/T/M1",
+      "geometry_mm": {
+        "start": [
+          0,
+          6000
+        ],
+        "end": [
+          6000,
+          6000
+        ]
+      },
+      "z_constraints": {
+        "base_level": "NPT",
+        "base_offset_mm": -1650,
+        "height_mm": 1650
+      },
+      "execution_action": "create"
+    },
+    {
+      "source_key": "S301/F9/001",
+      "status": "blocked",
+      "category": "structural_foundations",
+      "evidence": [
+        {
+          "sheet": "1725-S301",
+          "detail": "synthetic"
+        }
+      ],
+      "execution_action": "none",
+      "type_key": "S301/T/F1"
+    }
+  ],
+  "clarifications": [],
+  "execution_policy": {
+    "commit_authorized": true,
+    "expected_revit_changes": 10,
+    "primary_pdf_immutable": true,
+    "anchor_grids_immutable": true,
+    "allow_delete_existing": false,
+    "allow_modify_existing_types": false
+  },
+  "acceptance_tests": {
+    "expected_counts": {
+      "grids": 3,
+      "structural_foundations": 3,
+      "structural_columns": 2,
+      "structural_framing": 1,
+      "structural_walls": 1
+    },
+    "dimension_tolerance_mm": 1,
+    "overlay_tolerance_mm": null,
+    "duplicate_policy": "no duplicate source keys",
+    "warning_delta_policy": "no unexpected increase",
+    "blocked_source_keys": [
+      "1725-S401/F11/001"
+    ],
+    "excluded_source_keys": []
+  },
+  "datum_table": {
+    "npt_mm": 0,
+    "sf_mm": -2650,
+    "og_mm": -300,
+    "top_of_footing_mm": -1650,
+    "rules": {
+      "footing": {
+        "top": "S.F. + 1000 (top of footing, -1650 vs NPT)",
+        "bottom": "sf_mm"
+      },
+      "column": {
+        "top": "npt_mm",
+        "bottom": "top of footing (-1650)"
+      },
+      "beam": {
+        "top": "npt_mm",
+        "bottom": "top - beam height"
+      },
+      "wall": {
+        "top": "npt_mm",
+        "bottom": "top of footing (-1650)"
+      }
+    },
+    "rows": [
+      {
+        "name": "N.P.T.",
+        "value_mm": 0,
+        "level_ref": "NPT",
+        "evidence": "S301 section A",
+        "status": "resolved"
+      }
+    ]
+  }
+}
