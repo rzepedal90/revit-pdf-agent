@@ -47,7 +47,7 @@ Support contact is a **bbox broad phase only** (`contact: "bbox-candidate"`, sam
 | `tolerances_mm.z` | 2 |
 | `tolerances_mm.size` (fallback `dimension_tolerance_mm`) | 2 |
 | `rotation_tol_deg` | 0.5 |
-| `tolerances_mm.support_xy` | 50 |
+| `tolerances_mm.support_xy` | 10 |
 | `tolerances_mm.support_z` | 2 |
 | `overlap_threshold_mm2` | 10000 |
 

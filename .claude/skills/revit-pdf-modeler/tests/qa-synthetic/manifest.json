@@ -207,7 +207,7 @@
     "level": "Nivel 1",
     "start_offset_mm": -100,
     "end_offset_mm": -100,
-    "z_justification": "Top"
+    "z_justification": "top"
    }
   },
   {

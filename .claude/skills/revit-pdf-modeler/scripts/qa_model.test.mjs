@@ -134,12 +134,10 @@ test('beam end 31 mm above its support fails with gap 31', () => {
   assert.equal(r.ok, false);
 });
 
-test('beam end 31 mm outside support in XY: fails only when support_xy tolerance is tightened', () => {
+test('beam end 31 mm outside support in XY: fails at the default support_xy (10 mm)', () => {
   const {manifest, readback, sources} = fx();
   const b = item(readback, P + 'V1/001');
   b.location.end[0] = 6231; // column bbox max x = 6200
-  assert.equal(fails(runQa(manifest, readback, sources), 'support_end').length, 0); // default 50 mm
-  manifest.acceptance_tests.tolerances_mm.support_xy = 20;
   assert.equal(fails(runQa(manifest, readback, sources), 'support_end', P + 'V1/001').length, 1);
 });
 

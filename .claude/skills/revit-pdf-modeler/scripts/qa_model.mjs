@@ -16,7 +16,7 @@ import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {summarize} from './json_summary.mjs';
 
-const DEF = {xy: 2, z: 2, size: 2, rotation_deg: 0.5, support_xy: 50, support_z: 2, overlap_mm2: 1e4};
+const DEF = {xy: 2, z: 2, size: 2, rotation_deg: 0.5, support_xy: 10, support_z: 2, overlap_mm2: 1e4};
 const num = v => typeof v === 'number' && Number.isFinite(v);
 const r3 = v => (num(v) ? Math.round(v * 1000) / 1000 : v);
 const norm = s => String(s ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
