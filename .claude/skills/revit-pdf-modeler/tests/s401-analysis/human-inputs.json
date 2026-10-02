@@ -1,0 +1,36 @@
+{
+  "scope_answer": [
+    "grids",
+    "structural_columns",
+    "structural_framing",
+    "structural_foundations",
+    "structural_walls"
+  ],
+  "rebar": false,
+  "primary_pdf": {
+    "path": "C:/BIM/Example/PDFsam_1725-S401_PL FUNDACIONES.pdf",
+    "sheet": "1725-S401",
+    "revision": "0",
+    "sha256": "41BAED6247ED7226811E1BBDA3E6F868A1529B381314B3525845EDF6E22AC965",
+    "plan_scale": "1:125",
+    "detail_scale": "1:25",
+    "human_aligned": true,
+    "human_scaled": true,
+    "pinned_expected": true,
+    "immutable": true
+  },
+  "target": {
+    "rvt_path": "C:/BIM/Example/MODELING TEST STR.rvt",
+    "rvt_title": "MODELING TEST STR",
+    "revit_version": "2027",
+    "mcp_version": "0.8.31",
+    "active_view": "Nivel Fundación",
+    "unit_system": "METRIC"
+  },
+  "human_anchors": ["s8a", "E"],
+  "known_missing_input": {
+    "main_column_nominal_dimension_mm": 700,
+    "main_column_shape": "unconfirmed",
+    "main_column_locations": "unconfirmed"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "mode": "ANALYZE",
+  "expected_revit_changes": 0,
+  "must_ask_scope_if_missing": true,
+  "selected_categories_after_answer": [
+    "grids",
+    "structural_columns",
+    "structural_framing",
+    "structural_foundations",
+    "structural_walls"
+  ],
+  "rebar_must_be_false": true,
+  "primary_pdf_must_remain_immutable": true,
+  "anchor_grids_must_remain_immutable": true,
+  "additional_unregistered_pdfs_are_non_positional": true,
+  "blocked_elements_must_not_have_create_actions": true,
+  "existing_types_must_not_be_modified": true,
+  "manifest_must_be_unfrozen": true
+}
