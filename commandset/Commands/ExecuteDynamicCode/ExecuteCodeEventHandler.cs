@@ -118,8 +118,17 @@ namespace AIGeneratedCode
             var syntaxTree = CSharpSyntaxTree.ParseText(wrappedCode);
 
             // 添加必要的程序集引用（引用所有已加载的程序集）
+            // Deduplicate by simple name: Revit loads several assemblies twice from
+            // different add-in folders (e.g. Autodesk.Http.JsonApi and
+            // Autodesk.Http.DevPortal ship with both IssuesManagement and Revit's own
+            // root). Roslyn rejects duplicate simple names outright --
+            // "An assembly with the same simple name ... has already been imported" --
+            // which makes every compilation fail on such an installation. Keep the
+            // highest version of each.
             var references = AppDomain.CurrentDomain.GetAssemblies()
                 .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+                .GroupBy(a => a.GetName().Name)
+                .Select(g => g.OrderByDescending(a => a.GetName().Version).First())
                 .Select(a => MetadataReference.CreateFromFile(a.Location))
                 .Cast<MetadataReference>()
                 .ToList();
