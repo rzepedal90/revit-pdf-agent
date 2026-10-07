@@ -4,6 +4,9 @@
 
 **Connect AI assistants to Autodesk Revit via the Model Context Protocol.**
 
+> [!TIP]
+> **PDF-to-Revit agent:** to model a structural plan PDF in Revit (what to prepare: PDF imported, scaled and pinned, two anchor grids, levels; then how to start and what the agent asks), see [docs/RUNNING_THE_AGENT.md](docs/RUNNING_THE_AGENT.md).
+
 mcp-servers-for-revit enables AI clients like Claude, Cline, and other MCP-compatible tools to read, create, modify, and delete elements in Revit projects. It consists of three components: a TypeScript MCP server that exposes tools to AI, a C# Revit add-in that bridges commands into Revit, and a command set that implements the actual Revit API operations.
 
 > [!NOTE]
