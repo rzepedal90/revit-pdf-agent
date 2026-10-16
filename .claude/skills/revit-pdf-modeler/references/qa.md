@@ -5,7 +5,8 @@
 
 ## 1. Obtain the readback (read-only MCP tools)
 
-1. `find_by_source_key` with `prefix` = the manifest key prefix (for example `1725-S401/`), `limit` up to 1000. Save the output as `sources.json`. Check `truncated: false` (otherwise page by narrower prefixes). `duplicates` is reported by the tool and consumed by QA.
+0. Preferred: `node scripts/revit_rpc.mjs readback 1725-S401/ --out out/qa` does steps 1-2 and writes `sources.json` + `readback.json`.
+1. `find_by_source_key` with `prefix` = the manifest key prefix (for example `1725-S401/`), `limit` up to 5000 (default 500) and `offset`. The result is `{total, offset, hasMore, nextOffset, matches, notFound, duplicates}` where `total` counts all matches; page until `hasMore` is false. Save the output as `sources.json`. `duplicates` is reported by the tool and consumed by QA.
 2. Collect `matches[].id` and call `get_elements_info` with at most **200 ids per call** (hard limit of the tool), default fields (all). Save each response; pass them as one file containing an array of the responses (or a merged `items` list) as `readback.json`. Check every `notFound` is empty.
 3. Run:
 

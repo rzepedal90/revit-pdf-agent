@@ -171,14 +171,18 @@ export function validateManifest(data) {
   return errors;
 }
 
+const MAX_PRINTED_ERRORS = 30;
+
 export function main(argv = process.argv.slice(2)) {
-  if (argv.length !== 1) {
-    process.stderr.write('usage: validate_dimension_manifest.mjs manifest\n');
+  const flags = new Set(argv.filter((a) => a === '--json' || a === '--all'));
+  const rest = argv.filter((a) => !flags.has(a));
+  if (rest.length !== 1) {
+    process.stderr.write('usage: validate_dimension_manifest.mjs manifest [--json] [--all]\n');
     return 2;
   }
   let data;
   try {
-    data = JSON.parse(readFileSync(argv[0], 'utf8').replace(/^﻿/, ''));
+    data = JSON.parse(readFileSync(rest[0], 'utf8').replace(/^\uFEFF/, ''));
   } catch (exc) {
     process.stderr.write(`INVALID: ${exc.message}\n`);
     return 1;
@@ -188,15 +192,20 @@ export function main(argv = process.argv.slice(2)) {
     return 1;
   }
   const errors = validateManifest(data);
+  if (flags.has('--json')) {
+    console.log(JSON.stringify({valid: errors.length === 0, errorCount: errors.length, errors}));
+    return errors.length ? 1 : 0;
+  }
   if (errors.length) {
     console.log('INVALID');
-    for (const error of errors) console.log(`- ${error}`);
+    const shown = flags.has('--all') ? errors : errors.slice(0, MAX_PRINTED_ERRORS);
+    for (const error of shown) console.log(`- ${error}`);
+    if (shown.length < errors.length) console.log(`... ${errors.length - shown.length} more errors (use --all or --json)`);
     return 1;
   }
   console.log('VALID');
   return 0;
 }
-
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   process.exitCode = main();
 }

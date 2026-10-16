@@ -110,3 +110,21 @@ test('CLI exit codes', () => {
   assert.match(r.stdout, /^INVALID\n- execution_policy\.allow_value_override must be false/);
   assert.equal(spawnSync(process.execPath, [script, join(dir, 'nope.json')], {encoding: 'utf8'}).status, 1);
 });
+
+test('CLI --json and --all', () => {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'validate_dimension_manifest.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'vdm-'));
+  const badData = sample();
+  badData.execution_policy.allow_value_override = true;
+  const bad = join(dir, 'bad.json');
+  writeFileSync(bad, JSON.stringify(badData));
+  const r = spawnSync(process.execPath, [script, bad, '--json'], {encoding: 'utf8'});
+  assert.equal(r.status, 1);
+  const parsed = JSON.parse(r.stdout);
+  assert.equal(parsed.valid, false);
+  assert.equal(parsed.errorCount, parsed.errors.length);
+  assert.ok(parsed.errorCount >= 1);
+  const all = spawnSync(process.execPath, [script, bad, '--all'], {encoding: 'utf8'});
+  assert.equal(all.status, 1);
+  assert.match(all.stdout, /^INVALID\n- /);
+});

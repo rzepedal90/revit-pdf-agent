@@ -7,11 +7,12 @@ import { toText } from "../utils/toolResult.js";
 export function registerFindBySourceKeyTool(server: McpServer) {
   server.tool(
     "find_by_source_key",
-    "Read-only lookup of elements by exact source keys and/or key prefix. Returns {total, truncated, matches, notFound, duplicates} where duplicates lists keys carried by more than one element.",
+    "Read-only lookup of elements by exact source keys and/or key prefix. Returns {total (all matches, not page size), offset, hasMore, nextOffset, matches, notFound, duplicates}; page with limit/offset where duplicates lists keys carried by more than one element.",
     {
       keys: z.array(z.string()).optional().describe("Exact source keys."),
       prefix: z.string().optional().describe("Source key prefix."),
-      limit: z.number().int().min(1).max(1000).default(200),
+      limit: z.number().int().min(1).max(5000).default(500).describe("Page size."),
+      offset: z.number().int().min(0).default(0).describe("Matches to skip (paging)."),
     },
     async (args) => {
       try {

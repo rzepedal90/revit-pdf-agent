@@ -200,3 +200,43 @@ test('resolved type rows need family, type, integer dimensions_mm and material',
   assert.ok(any(exec((m) => { type(m).dimensions_mm.b = 20.5; }), 'dimensions_mm'));
   assert.ok(any(exec((m) => { delete type(m).material; }), '.material is required'));
 });
+
+// --- bounded output, --json/--all, build_options ---
+test('CLI output is bounded to 30 error lines; --all and --json give everything', () => {
+  const script = join(here, 'validate_manifest.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'vm-'));
+  const p = join(dir, 'many.json');
+  const bad = JSON.parse(readFileSync(S301, 'utf8'));
+  for (let i = 0; i < 40; i++) bad.element_manifest.push({source_key: `BAD/${i}`, status: 'bogus', category: 'nope'});
+  writeFileSync(p, JSON.stringify(bad));
+  const total = validateManifest(bad).length;
+  assert.ok(total > 31, `fixture should yield many errors, got ${total}`);
+  const run = (...a) => spawnSync(process.execPath, [script, p, ...a], {encoding: 'utf8'});
+  const def = run();
+  assert.equal(def.status, 1);
+  const lines = def.stdout.trim().split('\n');
+  assert.equal(lines.length, 1 + 30 + 1);
+  assert.equal(lines.at(-1), `... ${total - 30} more errors (use --all or --json)`);
+  const all = run('--all');
+  assert.equal(all.status, 1);
+  assert.equal(all.stdout.trim().split('\n').length, 1 + total);
+  const json = run('--json');
+  assert.equal(json.status, 1);
+  const parsed = JSON.parse(json.stdout);
+  assert.deepEqual([parsed.valid, parsed.errorCount, parsed.errors.length], [false, total, total]);
+  const ok = spawnSync(process.execPath, [script, S301, '--json'], {encoding: 'utf8'});
+  assert.equal(ok.status, 0);
+  assert.deepEqual(JSON.parse(ok.stdout), {valid: true, errorCount: 0, errors: []});
+});
+
+test('execution_policy.build_options is optional and type-checked', () => {
+  const has = (errs, s) => errs.some((e) => e.includes(s));
+  assert.deepEqual(exec((m) => { m.execution_policy.build_options = {readbackToleranceMm: 2, wallJoins: 'disallow', suppressWarningDialogs: false}; }), []);
+  assert.deepEqual(exec((m) => { m.execution_policy.build_options = {}; }), []);
+  assert.ok(has(exec((m) => { m.execution_policy.build_options = 'x'; }), 'build_options must be an object'));
+  assert.ok(has(exec((m) => { m.execution_policy.build_options = {readbackToleranceMm: -1}; }), 'readbackToleranceMm'));
+  assert.ok(has(exec((m) => { m.execution_policy.build_options = {readbackToleranceMm: '2'}; }), 'readbackToleranceMm'));
+  assert.ok(has(exec((m) => { m.execution_policy.build_options = {wallJoins: 'maybe'}; }), 'wallJoins'));
+  assert.ok(has(exec((m) => { m.execution_policy.build_options = {suppressWarningDialogs: 1}; }), 'suppressWarningDialogs'));
+  assert.ok(has(exec((m) => { m.execution_policy.build_options = {bogus: 1}; }), 'unsupported fields'));
+});

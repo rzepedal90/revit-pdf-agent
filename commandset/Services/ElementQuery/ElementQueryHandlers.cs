@@ -109,7 +109,8 @@ namespace RevitMCPCommandSet.Services.ElementQuery
         {
             var scope = (ElementQueryUtils.GetString(p, "scope") ?? "auto").ToLowerInvariant();
             var spec = ElementQueryUtils.FilterSpec.Parse(p, scope);
-            int limit = Math.Max(0, Math.Min(500, ElementQueryUtils.GetInt(p, "limit", 50)));
+            int limit = Math.Max(0, Math.Min(5000, ElementQueryUtils.GetInt(p, "limit", 50)));
+            int offset = Math.Max(0, ElementQueryUtils.GetInt(p, "offset", 0));
             var groupBy = ElementQueryUtils.GetString(p, "groupBy")?.ToLowerInvariant();
             if (groupBy != null && groupBy != "type" && groupBy != "level" && groupBy != "category")
                 throw new ArgumentException("groupBy must be type|level|category.");
@@ -121,7 +122,7 @@ namespace RevitMCPCommandSet.Services.ElementQuery
             {
                 if (!spec.Match(doc, el)) continue;
                 count++;
-                if (ids.Count < limit) ids.Add(el.Id.GetValue());
+                if (count > offset && ids.Count < limit) ids.Add(el.Id.GetValue());
                 if (groupBy == null) continue;
                 string key;
                 if (groupBy == "type")
@@ -135,7 +136,8 @@ namespace RevitMCPCommandSet.Services.ElementQuery
                 key = key ?? "(none)";
                 groups[key] = groups.TryGetValue(key, out var n) ? n + 1 : 1;
             }
-            var r = new JObject { ["count"] = count, ["ids"] = ids, ["truncated"] = count > ids.Count };
+            var r = new JObject { ["count"] = count, ["ids"] = ids, ["offset"] = offset, ["truncated"] = offset + ids.Count < count, ["hasMore"] = offset + ids.Count < count };
+            if (offset + ids.Count < count) r["nextOffset"] = offset + ids.Count;
             if (groupBy != null)
             {
                 var g = new JArray();
@@ -222,7 +224,8 @@ namespace RevitMCPCommandSet.Services.ElementQuery
             var prefix = ElementQueryUtils.GetString(p, "prefix");
             if ((keysTok == null || keysTok.Count == 0) && prefix == null)
                 throw new ArgumentException("Provide 'keys' and/or 'prefix'.");
-            int limit = Math.Max(1, Math.Min(1000, ElementQueryUtils.GetInt(p, "limit", 200)));
+            int limit = Math.Max(1, Math.Min(5000, ElementQueryUtils.GetInt(p, "limit", 500)));
+            int offset = Math.Max(0, ElementQueryUtils.GetInt(p, "offset", 0));
 
             var map = SourceKeyStore.ScanAll(doc);
             var wanted = new List<string>();
@@ -240,6 +243,7 @@ namespace RevitMCPCommandSet.Services.ElementQuery
 
             var matches = new JArray();
             var duplicates = new JArray();
+            int position = 0;
             foreach (var key in wanted)
             {
                 var list = map[key];
@@ -247,7 +251,8 @@ namespace RevitMCPCommandSet.Services.ElementQuery
                     duplicates.Add(new JObject { ["sourceKey"] = key, ["ids"] = new JArray(list.Select(e => e.Id.GetValue())) });
                 foreach (var el in list)
                 {
-                    if (matches.Count >= limit) break;
+                    int idx = position++;
+                    if (idx < offset || matches.Count >= limit) continue;
                     matches.Add(new JObject
                     {
                         ["id"] = el.Id.GetValue(),
@@ -259,10 +264,13 @@ namespace RevitMCPCommandSet.Services.ElementQuery
                 }
             }
             int totalElements = wanted.Sum(k => map[k].Count);
+            bool hasMore = offset + matches.Count < totalElements;
             return new JObject
             {
                 ["total"] = totalElements,
-                ["truncated"] = totalElements > matches.Count,
+                ["offset"] = offset,
+                ["hasMore"] = hasMore,
+                ["nextOffset"] = hasMore ? (JToken)(offset + matches.Count) : JValue.CreateNull(),
                 ["matches"] = matches,
                 ["notFound"] = notFound,
                 ["duplicates"] = duplicates,
