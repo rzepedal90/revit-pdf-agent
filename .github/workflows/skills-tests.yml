@@ -26,5 +26,8 @@ jobs:
         with:
           node-version: 22
 
-      - name: Test Claude Code skills (no dependencies)
+      - name: Install optional PDF tool dependencies
+        run: npm install --prefix .claude/skills/revit-pdf-modeler/scripts/pdf --no-audit --no-fund
+
+      - name: Test Claude Code skills
         run: node --test ".claude/skills/**/*.test.mjs"

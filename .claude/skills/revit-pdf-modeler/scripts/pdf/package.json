@@ -1,0 +1,11 @@
+{
+  "name": "revit-pdf-modeler-pdf-tools",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Optional PDF vector tools for the revit-pdf-modeler skill (install with: npm install --prefix .claude/skills/revit-pdf-modeler/scripts/pdf)",
+  "dependencies": {
+    "pdfjs-dist": "^4.10.38",
+    "polygon-clipping": "^0.15.7"
+  }
+}

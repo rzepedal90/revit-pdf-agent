@@ -78,6 +78,8 @@ Authority order: (1) human-confirmed project information, (2) written dimensions
 
 Every object has one state: `resolved`, `blocked` or `excluded`. Execute only `resolved`. Report source conflicts instead of choosing silently. A measured or visually inferred structural dimension stays `blocked` until confirmed: report raw range, proposed nominal value, evidence, affected locations and one question.
 
+**Vector tools.** For room/slab faces and wall centerlines from linked-DWG linework (`get_cad_geometry`) or from PDF vectors (extract, calibrate to the model grids with rms < 50 mm, filter by style), use the tested tools in `scripts/geom/` and `scripts/pdf/` (the latter needs `npm install --prefix .claude/skills/revit-pdf-modeler/scripts/pdf`); workflow, off-axis wall cleaning and lessons are in [references/cad-and-pdf-vectors.md](references/cad-and-pdf-vectors.md).
+
 ## Prepare and freeze the manifest
 
 Read [references/input-contract.md](references/input-contract.md) while collecting inputs and [references/manifest-schema.md](references/manifest-schema.md) before writing JSON. Validate with:
