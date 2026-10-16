@@ -486,6 +486,11 @@ function validateExecutableGeometry(data, errors) {
       if (typeof g.rotation_deg !== 'number' || !Number.isFinite(g.rotation_deg)) {
         errors.push(`${label}.geometry_mm.rotation_deg must be a number`);
       }
+    } else if (kind === 'wall') {
+      // Walls may carry sub-mm precision: exact 0/45/90/135 deg alignment cannot always be expressed in integer mm,
+      // and Revit warns "slightly off axis" for walls a few thousandths of a degree off.
+      const fin = p => Array.isArray(p) && p.length === 2 && p.every(v => typeof v === 'number' && Number.isFinite(v));
+      if (!fin(g.start) || !fin(g.end)) errors.push(`${label}.geometry_mm.start/end must be [x,y] mm numbers`);
     } else if (!isXY(g.start) || !isXY(g.end)) {
       errors.push(`${label}.geometry_mm.start/end must be [x,y] integer mm`);
     }

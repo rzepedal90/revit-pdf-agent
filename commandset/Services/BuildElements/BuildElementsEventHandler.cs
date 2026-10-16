@@ -69,6 +69,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
         {
             _doc = doc;
             _spec = BuildElementsModel.Parse(p);
+            _xyTolMm = _spec.ReadbackToleranceMm;
             _typeCache.Clear();
             _idToKey.Clear();
             _createdIds.Clear();
@@ -803,11 +804,14 @@ namespace RevitMCPCommandSet.Services.BuildElements
             else if (actual.Value != expected) d.Add(what + " is element " + actual.Value + ", expected " + expected);
         }
 
+        [ThreadStatic] private static double _xyTolMm;
+
         private static void CheckXY(List<string> d, string what, XYZ actualFt, MmPoint want)
         {
             var ax = BuildElementsModel.FtToMm(actualFt.X);
             var ay = BuildElementsModel.FtToMm(actualFt.Y);
-            if (!BuildElementsModel.NearMm(ax, want.X) || !BuildElementsModel.NearMm(ay, want.Y))
+            var tol = _xyTolMm > 0 ? _xyTolMm : BuildElementsModel.MmTolerance;
+            if (!BuildElementsModel.NearMm(ax, want.X, tol) || !BuildElementsModel.NearMm(ay, want.Y, tol))
                 d.Add(what + " is (" + ax.ToString("0.###") + "," + ay.ToString("0.###") + ") mm, expected (" + want.X.ToString("0.###") + "," + want.Y.ToString("0.###") + ")");
         }
 

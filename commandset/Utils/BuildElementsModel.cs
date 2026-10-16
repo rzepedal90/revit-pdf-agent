@@ -52,6 +52,8 @@ namespace RevitMCPCommandSet.Utils
     {
         public const int MaxElements = 500;
         public bool DryRun = true;
+        /// <summary>XY readback tolerance (mm) for placed locations; Revit wall auto-join can nudge ends by a few mm.</summary>
+        public double ReadbackToleranceMm = BuildElementsModel.MmTolerance;
         public string Mode = "upsert";
         public string ManifestHash;
         public List<BuildItemSpec> Items = new List<BuildItemSpec>();
@@ -106,6 +108,13 @@ namespace RevitMCPCommandSet.Utils
                 Mode = (ParamUtil.StrOrNull(p, "mode") ?? "upsert").Trim().ToLowerInvariant(),
                 ManifestHash = ParamUtil.StrOrNull(p, "manifestHash"),
             };
+            var tolTok = p["readbackToleranceMm"];
+            if (tolTok != null && tolTok.Type != JTokenType.Null)
+            {
+                var tol = tolTok.Value<double>();
+                if (!(tol >= 0 && tol <= 100)) throw Bad("Parameter 'readbackToleranceMm' must be between 0 and 100 mm.");
+                spec.ReadbackToleranceMm = Math.Max(tol, MmTolerance);
+            }
             if (spec.Mode != "upsert" && spec.Mode != "create_only")
                 throw Bad("Parameter 'mode' must be 'upsert' or 'create_only', got '" + spec.Mode + "'.");
 

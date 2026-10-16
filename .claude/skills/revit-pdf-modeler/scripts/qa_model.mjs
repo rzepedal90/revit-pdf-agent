@@ -196,7 +196,11 @@ export function runQa(manifest, readback, sourceIndex) {
     else {
       if (t.family !== undefined) add(key, 'family', same(t.family, item.family) ? 'pass' : 'fail', t.family, item.family ?? null, null);
       if (t.type !== undefined) add(key, 'type', same(t.type, item.type) ? 'pass' : 'fail', t.type, item.type ?? null, null);
-      if (t.material) add(key, 'material', same(t.material, item.material) ? 'pass' : 'fail', t.material, item.material ?? null, null);
+      // "(none)" declares that the type has no material assigned: matches an empty readback.
+      if (t.material) {
+        const none = /^\(none\)$/i.test(String(t.material).trim()) && !item.material;
+        add(key, 'material', none || same(t.material, item.material) ? 'pass' : 'fail', t.material, item.material ?? null, null);
+      }
     }
     // 4. XY + rotation
     const g = e.geometry_mm ?? {};

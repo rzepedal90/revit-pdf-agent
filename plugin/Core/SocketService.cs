@@ -172,11 +172,14 @@ namespace revit_mcp_plugin.Core
             try
             {
                 byte[] buffer = new byte[8192];
+                var pending = new MemoryStream();
 
                 while (_isRunning && tcpClient.Connected)
                 {
                     // 读取客户端消息
-                    // Read client messages.
+                    // Read client messages. A request larger than the buffer arrives in several reads: accumulate
+                    // until the bytes form one complete JSON document (previously a >8 KB request was truncated and
+                    // silently dropped, leaving the client waiting forever).
                     int bytesRead = 0;
 
                     try
@@ -197,7 +200,11 @@ namespace revit_mcp_plugin.Core
                         break;
                     }
 
-                    string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                    pending.Write(buffer, 0, bytesRead);
+                    if (!IsCompleteJson(pending.GetBuffer(), (int)pending.Length)) continue;
+
+                    string message = Encoding.UTF8.GetString(pending.GetBuffer(), 0, (int)pending.Length);
+                    pending.SetLength(0);
                     System.Diagnostics.Trace.WriteLine($"收到消息: {message}\nReceived message: {message}");
 
                     string response = ProcessJsonRPCRequest(message);
@@ -216,6 +223,30 @@ namespace revit_mcp_plugin.Core
             {
                 tcpClient.Close();
             }
+        }
+
+        /// <summary>
+        /// True when the bytes hold one complete top-level JSON object/array (brace depth back to zero outside
+        /// strings). UTF-8 multi-byte sequences never contain ASCII braces or quotes, so a byte scan is safe.
+        /// </summary>
+        internal static bool IsCompleteJson(byte[] data, int length)
+        {
+            int depth = 0; bool inString = false, escape = false, started = false;
+            for (int i = 0; i < length; i++)
+            {
+                byte b = data[i];
+                if (inString)
+                {
+                    if (escape) escape = false;
+                    else if (b == (byte)'\\') escape = true;
+                    else if (b == (byte)'"') inString = false;
+                    continue;
+                }
+                if (b == (byte)'"') inString = true;
+                else if (b == (byte)'{' || b == (byte)'[') { depth++; started = true; }
+                else if (b == (byte)'}' || b == (byte)']') { depth--; if (started && depth == 0) return true; }
+            }
+            return false;
         }
 
         private string ProcessJsonRPCRequest(string requestJson)

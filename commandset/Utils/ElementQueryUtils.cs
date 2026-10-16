@@ -354,6 +354,9 @@ namespace RevitMCPCommandSet.Utils
                     o["location"] = new JObject { ["point"] = Pt(lp.Point), ["rotationDeg"] = Deg(lp.Rotation) };
                 else if (loc is LocationCurve lc && lc.Curve != null && lc.Curve.IsBound)
                     o["location"] = new JObject { ["start"] = Pt(lc.Curve.GetEndPoint(0)), ["end"] = Pt(lc.Curve.GetEndPoint(1)) };
+                else if (el is Grid grid && grid.Curve != null && grid.Curve.IsBound)
+                    // Grids have no Location; report their curve so QA can check positions.
+                    o["location"] = new JObject { ["start"] = Pt(grid.Curve.GetEndPoint(0)), ["end"] = Pt(grid.Curve.GetEndPoint(1)) };
             }
             BoundingBoxXYZ bb = null;
             if (Want("bbox") || Want("elevations"))
