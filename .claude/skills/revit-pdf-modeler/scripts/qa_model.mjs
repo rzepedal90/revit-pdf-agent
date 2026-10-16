@@ -37,6 +37,8 @@ export function kindOf(category) {
   if (c.includes('framing') || c.includes('beam') || c.includes('viga')) return 'beam';
   if (c.includes('wall') || c.includes('muro')) return 'wall';
   if (c.includes('floor') || c.includes('slab') || c.includes('losa') || c.includes('suelo')) return 'floor';
+  // build_elements kind "family": point families placed on a level with an offset (parking, generic families)
+  if (c.includes('parking') || c.includes('aparcamiento') || c.includes('generic_famil') || c.includes('modelo_generico')) return 'family';
   return 'other';
 }
 
@@ -261,6 +263,18 @@ export function runQa(manifest, readback, sourceIndex) {
       const l = lvl(z.level);
       if (l === undefined || !num(z.offset_mm)) add(key, 'z_top', 'skip', null, null, null, 'z_constraints {level, offset_mm} unusable');
       else cmpNum(key, 'z_top', l + z.offset_mm, item.topElevation ?? bb?.max?.[2], tol.z, 'footing top = level + offset');
+    } else if (kind === 'family') {
+      // Level-based point family: the level and the level offset are what was requested; the bbox height depends on
+      // the family (2D families are flat), so compare the offset parameter rather than a top elevation.
+      if (!z.level || !num(z.offset_mm)) add(key, 'z_offset', 'skip', null, null, null, 'z_constraints {level, offset_mm} unusable');
+      else {
+        if (item.levelName) add(key, 'z_level', same(item.levelName, z.level) ? 'pass' : 'fail', z.level, item.levelName, null);
+        else add(key, 'z_level', 'skip', z.level, null, null, 'readback has no levelName');
+        const off = pick(item.offsets, ['hostOffset', 'baseOffset', 'zOffset']);
+        if (num(off)) cmpNum(key, 'z_offset', z.offset_mm, off, tol.z, 'level offset (hostOffset)');
+        else if (num(bb?.min?.[2]) && lvl(z.level) !== undefined) cmpNum(key, 'z_offset', lvl(z.level) + z.offset_mm, bb.min[2], tol.z, 'bbox bottom = level + offset (no offset parameter in readback)');
+        else add(key, 'z_offset', 'skip', z.offset_mm, null, null, 'readback has no offset parameter or bbox');
+      }
     } else if (kind === 'column') {
       const bl = lvl(z.base_level ?? z.level), tl = lvl(z.top_level);
       const bo = z.base_offset_mm ?? z.offset_mm, to = z.top_offset_mm;
@@ -326,6 +340,17 @@ export function runQa(manifest, readback, sourceIndex) {
         const swap = (((Math.round(rot / 90) % 2) + 2) % 2) === 1;
         cmpNum(key, 'size_x', swap ? ly : lx, bb.max[0] - bb.min[0], tol.size);
         cmpNum(key, 'size_y', swap ? lx : ly, bb.max[1] - bb.min[1], tol.size);
+      }
+    }
+
+    // 7. instance parameters requested by the row (family kind writes them; readback exposes comments/mark only)
+    if (Array.isArray(e.parameters)) {
+      const READ = { comentarios: 'comments', comments: 'comments', marca: 'mark', mark: 'mark' };
+      for (const p of e.parameters) {
+        const f = READ[String(p?.name ?? '').trim().toLowerCase()];
+        const check = `param:${p?.name}`;
+        if (!f) add(key, check, 'skip', p?.value ?? null, null, null, 'parameter not in readback (only Comments/Mark are read back)');
+        else add(key, check, same(item[f], p.value) ? 'pass' : 'fail', p.value ?? null, item[f] ?? null, null);
       }
     }
   }

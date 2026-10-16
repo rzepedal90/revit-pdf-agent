@@ -131,6 +131,8 @@ function main() {
     let segs = extracted.segs.filter((s) => types.includes(s.t));
     const region = csv(a.region);
     if (region) { const m = toModel(segs, transform); segs = segs.filter((_, k) => inRegion([m[k]], region).length); }
+    // Measure in model mm when calibrated (lengths were previously summed in page points but labelled metres).
+    if (transform) { const m = toModel(segs, transform); segs = segs.map((s, k) => ({ ...s, a: m[k][0], b: m[k][1] })); }
     const h = Object.entries(styleHistogram(segs, { types })).sort((x, y) => y[1] - x[1]).slice(0, 30);
     const unit = transform ? 1000 : 1;
     for (const [k, v] of h) console.log(((v / unit)).toFixed(1).padStart(10) + (transform ? ' m  ' : ' pt ') + k);
