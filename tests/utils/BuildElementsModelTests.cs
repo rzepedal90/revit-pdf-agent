@@ -88,6 +88,42 @@ namespace RevitMCPCommandSet.UtilsTests
             Assert.Throws<RevitCommandException>(() => BuildElementsModel.Parse(Req(
                 "{'sourceKey':'K1','kind':'footing','point':{'x':0,'y':0},'rotationDeg':0,'level':'N','offsetMm':0}")));
 
+        private const string Fam =
+            "{'sourceKey':'P1','kind':'family','familyName':'Plaza de aparcamiento 2D','typeName':'5000x2500','category':'OST_Parking','point':{'x':100,'y':200},'rotationDeg':90,'level':'N','offsetMm':0";
+
+        [Fact] public void FamilyParsesWithCategoryAndParameters()
+        {
+            var it = BuildElementsModel.Parse(Req(Fam + ",'parameters':[{'name':'Comments','value':'x'}]}")).Items[0];
+            Assert.Equal("family", it.Kind);
+            Assert.Equal("OST_Parking", it.Category);
+            Assert.Equal(100, it.Point.X, 6);
+            Assert.Equal(90, it.RotationDeg, 6);
+            Assert.Equal("N", it.Level);
+            Assert.Single(it.Parameters);
+        }
+
+        [Fact] public void FamilyCategoryIsOptional() =>
+            Assert.Null(BuildElementsModel.Parse(Req("{'sourceKey':'P1','kind':'family','typeId':5,'point':{'x':0,'y':0},'rotationDeg':0,'level':'N','offsetMm':0}")).Items[0].Category);
+
+        [Fact] public void FamilyMissingOffsetRejected()
+        {
+            var ex = Assert.Throws<RevitCommandException>(() => BuildElementsModel.Parse(Req(
+                "{'sourceKey':'P1','kind':'family','typeName':'T','point':{'x':0,'y':0},'rotationDeg':0,'level':'N'}")));
+            Assert.Equal(ErrorCodes.InvalidParameter, ex.Code);
+            Assert.Contains("offsetMm", ex.Message);
+        }
+
+        [Fact] public void FamilyMissingTypeRejected() =>
+            Assert.Throws<RevitCommandException>(() => BuildElementsModel.Parse(Req(
+                "{'sourceKey':'P1','kind':'family','point':{'x':0,'y':0},'rotationDeg':0,'level':'N','offsetMm':0}")));
+
+        [Fact] public void FamilyBadCategoryNameRejected()
+        {
+            var ex = Assert.Throws<RevitCommandException>(() => BuildElementsModel.Parse(Req(Fam.Replace("OST_Parking", "Parking") + "}")));
+            Assert.Equal(ErrorCodes.InvalidParameter, ex.Code);
+            Assert.Contains("category", ex.Message);
+        }
+
         [Fact] public void DuplicateSourceKeyRejected() =>
             Assert.Throws<RevitCommandException>(() => BuildElementsModel.Parse(J("{'elements':[" + Footing + "," + Footing + "]}")));
 

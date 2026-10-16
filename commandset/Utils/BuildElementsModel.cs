@@ -25,13 +25,14 @@ namespace RevitMCPCommandSet.Utils
         public string Kind;
         public long? TypeId;
         public string FamilyName;
+        public string Category;          // family: optional BuiltInCategory name (e.g. OST_Parking)
         public string TypeName;
 
-        public MmPoint Point;            // footing, column
+        public MmPoint Point;            // footing, column, family
         public MmPoint Start, End;       // beam, wall, grid
         public double RotationDeg;       // footing, column (includes transform rotation), normalised to [0,360)
 
-        public string Level;             // footing, beam
+        public string Level;             // footing, beam, family
         public double OffsetMm;          // footing
         public string BaseLevel;         // column, wall
         public double BaseOffsetMm;
@@ -70,7 +71,7 @@ namespace RevitMCPCommandSet.Utils
         public const double AngleToleranceDeg = 0.01;
         public const double MmPerFt = 304.8;
 
-        public static readonly string[] Kinds = { "footing", "column", "beam", "wall", "grid", "floor" };
+        public static readonly string[] Kinds = { "footing", "column", "beam", "wall", "grid", "floor", "family" };
         public static readonly string[] ZJustifications = { "top", "center", "bottom" };
         public static readonly string[] StructuralUsages = { "girder", "joist", "other" };
         public static readonly string[] LocationLines =
@@ -207,9 +208,21 @@ namespace RevitMCPCommandSet.Utils
                     throw Bad("Either 'typeId' or 'typeName' (with optional 'familyName') is required for kind '" + it.Kind + "'.");
             }
 
+            if (it.Kind == "family")
+            {
+                it.Category = ParamUtil.StrOrNull(o, "category");
+                if (it.Category != null)
+                {
+                    it.Category = it.Category.Trim();
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(it.Category, "^OST_[A-Za-z0-9_]+$"))
+                        throw Bad("Parameter 'category' must be a BuiltInCategory name such as 'OST_Parking', got '" + it.Category + "'.");
+                }
+            }
+
             switch (it.Kind)
             {
                 case "footing":
+                case "family":
                     it.Point = Pt(o, "point", ox, oy, rot);
                     it.RotationDeg = NormalizeDeg(ParamUtil.Dbl(o, "rotationDeg") + rot);
                     it.Level = Req(o, "level");

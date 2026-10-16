@@ -14,7 +14,7 @@ const STATES = new Set(['resolved', 'blocked', 'excluded']);
 const ALLOWED_CATEGORIES = new Set([
   'grids', 'structural_columns', 'structural_framing', 'structural_foundations',
   'structural_walls', 'structural_floors', 'openings',
-  'architectural_walls', 'floors', 'levels',
+  'architectural_walls', 'floors', 'levels', 'parking', 'generic_families',
 ]);
 const LEVEL_ACTIONS = new Set(['existing', 'create']);
 const REQUIRED_TOP_LEVEL = [
@@ -248,7 +248,7 @@ export function validateManifest(data) {
 export const KIND_BY_CATEGORY = {
   grids: 'grid', structural_foundations: 'footing', structural_columns: 'column',
   structural_framing: 'beam', structural_walls: 'wall', architectural_walls: 'wall',
-  floors: 'floor', structural_floors: 'floor',
+  floors: 'floor', structural_floors: 'floor', parking: 'family', generic_families: 'family',
 };
 const categories0 = (data) => (isObj(data.scope) && Array.isArray(data.scope.categories) ? data.scope.categories : []);
 
@@ -481,7 +481,7 @@ function validateExecutableGeometry(data, errors) {
     if (!isObj(g)) { errors.push(`${label}.geometry_mm must be an object`); return; }
     if (kind === 'floor') {
       validateBoundary(g.boundary, `${label}.geometry_mm.boundary`, errors);
-    } else if (kind === 'footing' || kind === 'column') {
+    } else if (kind === 'footing' || kind === 'column' || kind === 'family') {
       if (!isInt(g.x) || !isInt(g.y)) errors.push(`${label}.geometry_mm.x/y must be integers (mm)`);
       if (typeof g.rotation_deg !== 'number' || !Number.isFinite(g.rotation_deg)) {
         errors.push(`${label}.geometry_mm.rotation_deg must be a number`);
@@ -503,7 +503,7 @@ function validateExecutableGeometry(data, errors) {
         if (!ok) errors.push(`${label}.z_constraints.${n} must be ${ints.includes(n) ? 'an integer (mm)' : 'a level name'}`);
       }
     };
-    if (kind === 'footing') need(['level', 'offset_mm'], ['offset_mm']);
+    if (kind === 'footing' || kind === 'family') need(['level', 'offset_mm'], ['offset_mm']);
     if (kind === 'floor') need(['level', 'offset_mm'], ['offset_mm']);
     if (has(row, 'structural') && typeof row.structural !== 'boolean') errors.push(`${label}.structural must be a boolean`);
     if (row.category === 'architectural_walls' && row.structural === true) {

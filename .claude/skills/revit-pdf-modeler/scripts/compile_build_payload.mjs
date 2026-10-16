@@ -13,7 +13,7 @@ import {hash} from './execution_runner.mjs';
 import {summarize} from './json_summary.mjs';
 import {validateManifest, KIND_BY_CATEGORY} from './validate_manifest.mjs';
 
-export const STAGES = ['grid', 'footing', 'column', 'beam', 'wall', 'floor'];
+export const STAGES = ['grid', 'footing', 'column', 'beam', 'wall', 'floor', 'family'];
 export const MAX_PER_CHUNK = 500;
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const xy = ([x, y]) => ({x, y});
@@ -35,7 +35,10 @@ function toElement(row, kind, type) {
   } else {
     el.familyName = type.family;
     el.typeName = type.type;
-    if (kind === 'footing') {
+    if (kind === 'family') {
+      Object.assign(el, {point: {x: g.x, y: g.y}, rotationDeg: g.rotation_deg, level: z.level, offsetMm: z.offset_mm});
+      if (type.revit_category) el.category = type.revit_category;
+    } else if (kind === 'footing') {
       Object.assign(el, {point: {x: g.x, y: g.y}, rotationDeg: g.rotation_deg, level: z.level, offsetMm: z.offset_mm});
     } else if (kind === 'column') {
       Object.assign(el, {
