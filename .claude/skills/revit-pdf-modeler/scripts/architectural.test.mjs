@@ -154,7 +154,7 @@ test('snapped column evidence: XY equals the intersection; CAD deviation is chec
 test('compile: floor stage follows walls; floor and architectural wall payloads are exact', () => {
   const r = compileBuildPayloads(manifest());
   assert.deepEqual(r.payloads.map((p) => p.stage), ['grid', 'column', 'wall', 'floor']);
-  assert.deepEqual(r.counts, {grid: 4, footing: 0, column: 2, beam: 0, wall: 1, floor: 1});
+  assert.deepEqual(r.counts, {grid: 4, footing: 0, column: 2, beam: 0, wall: 1, floor: 1, family: 0});
   assert.deepEqual(r.payloads[2].payload.elements[0], {
     sourceKey: 'ARQ-01/W/001', kind: 'wall', familyName: 'Basic Wall', typeName: 'Generico - 200',
     start: {x: 0, y: 0}, end: {x: 20000, y: 0}, baseLevel: 'Nivel 1', baseOffsetMm: 0,

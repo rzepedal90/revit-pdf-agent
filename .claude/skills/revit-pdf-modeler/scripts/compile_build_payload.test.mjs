@@ -63,7 +63,7 @@ test('blocked rows are skipped and listed; counts and hash are stable', () => {
   assert.deepEqual(a, b);
   assert.equal(a.manifestHash, HASH);
   assert.deepEqual(a.skipped, [{sourceKey: 'S301/F9/001', status: 'blocked', category: 'structural_foundations'}]);
-  assert.deepEqual(a.counts, {grid: 3, footing: 3, column: 2, beam: 1, wall: 1, floor: 0});
+  assert.deepEqual(a.counts, {grid: 3, footing: 3, column: 2, beam: 1, wall: 1, floor: 0, family: 0});
 });
 
 test('row order in the manifest does not change the payload elements', () => {

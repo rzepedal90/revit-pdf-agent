@@ -116,3 +116,7 @@ Each: `id` (unique), `topic`, `status` (`open|answered`), `affected_source_keys`
 ## Optional frozen flow manifest
 
 When a new category or custom stage is needed, add `flow_manifest` (`schema_version: 1`, `stages[]` with `id` starting `stage:`, `label`, `source`, `categories`, `depends_on` naming only earlier stages; `qa.enabled` boolean). Categories owned by stages become allowed categories; duplicate ownership, unknown dependencies and forward dependencies fail validation.
+
+## Families (parking / generic_families)
+
+Non-hosted, level-based point families (parking stalls, furniture, generic models) use categories `parking` or `generic_families` and compile to `build_elements` kind `family`. Rows: `geometry_mm {x, y, rotation_deg}` (x/y integer mm), `z_constraints {level, offset_mm}` (integer mm elevation from the level; mandatory). The type row carries `revit_category` (a BuiltInCategory name, e.g. `"OST_Parking"`), sent as `category` to filter type resolution; if omitted the type is resolved across all categories and an ambiguous match fails. Hosted families are rejected by the tool.

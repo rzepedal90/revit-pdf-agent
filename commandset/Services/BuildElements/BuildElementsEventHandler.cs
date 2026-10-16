@@ -252,6 +252,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
             switch (kind)
             {
                 case "footing": return "OST_StructuralFoundation";
+                case "family": return "family";
                 case "column": return "OST_StructuralColumns";
                 case "beam": return "OST_StructuralFraming";
                 default: return null;
@@ -266,6 +267,22 @@ namespace RevitMCPCommandSet.Services.BuildElements
                 case "column": return BuiltInCategory.OST_StructuralColumns;
                 default: return BuiltInCategory.OST_StructuralFraming;
             }
+        }
+
+        private static bool TryFamilyCat(BuildItemSpec s, out BuiltInCategory bic)
+        {
+            bic = BuiltInCategory.INVALID;
+            return s.Category != null && Enum.TryParse(s.Category, false, out bic) && Enum.IsDefined(typeof(BuiltInCategory), bic);
+        }
+
+        private static bool IsKind(Element el, BuildItemSpec s)
+        {
+            if (s.Kind == "family")
+            {
+                if (!(el is FamilyInstance) || el.Category == null) return false;
+                return !TryFamilyCat(s, out var fb) || el.Category.Id.GetValue() == (long)fb;
+            }
+            return IsKind(el, s.Kind);
         }
 
         private static bool IsKind(Element el, string kind)
@@ -290,7 +307,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
 
         private ElementId ResolveType(BuildItemSpec s)
         {
-            var cacheKey = s.Kind + "|" + (s.TypeId?.ToString() ?? "") + "|" + s.FamilyName + "|" + s.TypeName;
+            var cacheKey = s.Kind + "|" + s.Category + "|" + (s.TypeId?.ToString() ?? "") + "|" + s.FamilyName + "|" + s.TypeName;
             if (_typeCache.TryGetValue(cacheKey, out var cached)) return cached;
             ElementId result;
             if (s.Kind == "wall")
@@ -322,6 +339,34 @@ namespace RevitMCPCommandSet.Services.BuildElements
                         .Where(t => t.Name == s.TypeName).ToList();
                     result = Single(m.Select(t => t.Id).ToList(), "FloorType '" + s.TypeName + "'");
                 }
+            }
+            else if (s.Kind == "family")
+            {
+                if (s.Category != null && !TryFamilyCat(s, out _))
+                    throw new RevitCommandException(ErrorCodes.InvalidParameter, "category '" + s.Category + "' is not a valid BuiltInCategory name.");
+                var hasCat = TryFamilyCat(s, out var fbic);
+                if (s.TypeId != null)
+                {
+                    var fs = _doc.GetElement(ParameterWriter.MakeId(s.TypeId.Value)) as FamilySymbol
+                        ?? throw new RevitCommandException(ErrorCodes.NotFound, "typeId " + s.TypeId + " is not a family type.");
+                    if (hasCat && (fs.Category == null || fs.Category.Id.GetValue() != (long)fbic))
+                        throw new RevitCommandException(ErrorCodes.InvalidParameter, "typeId " + s.TypeId + " is not in category " + s.Category + ".");
+                    result = fs.Id;
+                }
+                else
+                {
+                    var col = new FilteredElementCollector(_doc).OfClass(typeof(FamilySymbol));
+                    if (hasCat) col = col.OfCategory(fbic);
+                    var m = col.Cast<FamilySymbol>()
+                        .Where(t => t.Name == s.TypeName && (string.IsNullOrWhiteSpace(s.FamilyName) || t.FamilyName == s.FamilyName)).ToList();
+                    result = Single(m.Select(t => t.Id).ToList(),
+                        "type '" + (string.IsNullOrWhiteSpace(s.FamilyName) ? "" : s.FamilyName + " : ") + s.TypeName + "' in " + (hasCat ? s.Category : "any category"));
+                }
+                var sym = (FamilySymbol)_doc.GetElement(result);
+                var pt = sym.Family.FamilyPlacementType;
+                if (pt != FamilyPlacementType.OneLevelBased && pt != FamilyPlacementType.WorkPlaneBased)
+                    throw new RevitCommandException(ErrorCodes.InvalidParameter,
+                        "Family '" + sym.FamilyName + "' has placement type " + pt + "; kind 'family' only supports non-hosted OneLevelBased or WorkPlaneBased families.");
             }
             else
             {
@@ -366,7 +411,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
                     throw new RevitCommandException(ErrorCodes.IdentityConflict,
                         "Source key '" + s.SourceKey + "' is on " + found.Count + " elements (" + string.Join(",", found.Select(e => e.Id.GetValue())) + ").");
                 c.Existing = found[0];
-                if (!IsKind(c.Existing, s.Kind))
+                if (!IsKind(c.Existing, s))
                     throw new RevitCommandException(ErrorCodes.IdentityConflict,
                         "Source key '" + s.SourceKey + "' belongs to element " + c.Existing.Id.GetValue() + " which is not a " + s.Kind + ".");
                 if (_spec.Mode == "create_only")
@@ -392,6 +437,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
             switch (s.Kind)
             {
                 case "footing":
+                case "family":
                 case "beam":
                 case "floor":
                     c.L1 = LevelByName(s.Level);
@@ -471,6 +517,15 @@ namespace RevitMCPCommandSet.Services.BuildElements
                     if (Math.Abs(s.RotationDeg) > 1e-9)
                         ElementTransformUtils.RotateElement(_doc, fi.Id, Axis(pt), s.RotationDeg * Math.PI / 180.0);
                     SetFootingConstraints(fi, c);
+                    return fi;
+                }
+                case "family":
+                {
+                    var pt = P3(s.Point, c.L1.Elevation + mmFt(s.OffsetMm));
+                    var fi = _doc.Create.NewFamilyInstance(pt, Symbol(c), c.L1, StructuralType.NonStructural);
+                    if (Math.Abs(s.RotationDeg) > 1e-9)
+                        ElementTransformUtils.RotateElement(_doc, fi.Id, Axis(pt), s.RotationDeg * Math.PI / 180.0);
+                    SetFamilyConstraints(fi, c);
                     return fi;
                 }
                 case "column":
@@ -566,6 +621,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
             switch (s.Kind)
             {
                 case "footing":
+                case "family":
                 case "column":
                 {
                     var lp = (LocationPoint)el.Location;
@@ -578,6 +634,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
                     if (Math.Abs(dRot) > 1e-6)
                         ElementTransformUtils.RotateElement(_doc, el.Id, Axis(want), dRot * Math.PI / 180.0);
                     if (s.Kind == "footing") SetFootingConstraints((FamilyInstance)el, c);
+                    else if (s.Kind == "family") SetFamilyConstraints((FamilyInstance)el, c);
                     else SetColumnConstraints((FamilyInstance)el, c);
                     break;
                 }
@@ -688,6 +745,36 @@ namespace RevitMCPCommandSet.Services.BuildElements
         {
             SetInstanceLevel(fi, c.L1);
             SetMm(fi, BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM, c.S.OffsetMm);
+        }
+
+        private static readonly BuiltInParameter[] FamilyOffsetParams =
+        {
+            BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM,
+            BuiltInParameter.INSTANCE_ELEVATION_PARAM,
+        };
+
+        /// <summary>First level-offset parameter (free-host offset, then elevation) that exists on the instance and is a Double.</summary>
+        private static Parameter FamilyOffsetParam(Element el, bool writableOnly)
+        {
+            foreach (var bip in FamilyOffsetParams)
+            {
+                var p = Prm(el, bip);
+                if (p == null || p.StorageType != StorageType.Double) continue;
+                if (writableOnly && p.IsReadOnly) continue;
+                return p;
+            }
+            return null;
+        }
+
+        private static void SetFamilyConstraints(FamilyInstance fi, Ctx c)
+        {
+            SetInstanceLevel(fi, c.L1);
+            var p = FamilyOffsetParam(fi, true)
+                ?? throw new RevitCommandException(ErrorCodes.RevitError,
+                    "Element " + fi.Id.GetValue() + " has no writable level-offset parameter (INSTANCE_FREE_HOST_OFFSET_PARAM / INSTANCE_ELEVATION_PARAM).");
+            var ft = BuildElementsModel.MmToFt(c.S.OffsetMm);
+            if (Math.Abs(p.AsDouble() - ft) < 1e-9) return;
+            if (!p.Set(ft)) throw new RevitCommandException(ErrorCodes.RevitError, "Revit rejected level offset = " + c.S.OffsetMm + " mm.");
         }
 
         private static void SetColumnConstraints(FamilyInstance fi, Ctx c)
@@ -848,6 +935,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
             switch (s.Kind)
             {
                 case "footing":
+                case "family":
                 case "column":
                 {
                     if (!(el.Location is LocationPoint lp)) { d.Add("no point location"); break; }
@@ -859,6 +947,12 @@ namespace RevitMCPCommandSet.Services.BuildElements
                     {
                         CheckId(d, "level", InstanceLevelId(el), c.L1.Id.GetValue());
                         CheckMm(d, "offset", Mm(el, BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM), s.OffsetMm);
+                    }
+                    else if (s.Kind == "family")
+                    {
+                        CheckId(d, "level", InstanceLevelId(el), c.L1.Id.GetValue());
+                        var op = FamilyOffsetParam(el, false);
+                        CheckMm(d, "offset", op == null ? (double?)null : BuildElementsModel.FtToMm(op.AsDouble()), s.OffsetMm);
                     }
                     else
                     {
