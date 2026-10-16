@@ -54,6 +54,10 @@ namespace RevitMCPCommandSet.Utils
         public bool DryRun = true;
         /// <summary>XY readback tolerance (mm) for placed locations; Revit wall auto-join can nudge ends by a few mm.</summary>
         public double ReadbackToleranceMm = BuildElementsModel.MmTolerance;
+        /// <summary>wallJoins: "allow" (Revit default) or "disallow" (walls keep exact requested ends).</summary>
+        public bool AllowWallJoins = true;
+        /// <summary>Delete warnings after recording them on committed runs too (dry runs always do).</summary>
+        public bool SuppressWarningDialogs = true;
         public string Mode = "upsert";
         public string ManifestHash;
         public List<BuildItemSpec> Items = new List<BuildItemSpec>();
@@ -108,6 +112,10 @@ namespace RevitMCPCommandSet.Utils
                 Mode = (ParamUtil.StrOrNull(p, "mode") ?? "upsert").Trim().ToLowerInvariant(),
                 ManifestHash = ParamUtil.StrOrNull(p, "manifestHash"),
             };
+            var joins = (ParamUtil.StrOrNull(p, "wallJoins") ?? "allow").Trim().ToLowerInvariant();
+            if (joins != "allow" && joins != "disallow") throw Bad("Parameter 'wallJoins' must be 'allow' or 'disallow'.");
+            spec.AllowWallJoins = joins == "allow";
+            spec.SuppressWarningDialogs = ParamUtil.BoolOr(p, "suppressWarningDialogs", true);
             var tolTok = p["readbackToleranceMm"];
             if (tolTok != null && tolTok.Type != JTokenType.Null)
             {

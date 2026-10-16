@@ -39,6 +39,8 @@ namespace RevitMCPCommandSet.Services.BuildElements
         {
             public readonly List<FailRec> Warnings = new List<FailRec>();
             public readonly List<FailRec> Errors = new List<FailRec>();
+            /// <summary>Delete warnings after recording them (they are reported in the result) so Revit shows no dialog.</summary>
+            public bool SuppressWarningUi;
 
             public FailureProcessingResult PreprocessFailures(FailuresAccessor fa)
             {
@@ -49,7 +51,11 @@ namespace RevitMCPCommandSet.Services.BuildElements
                     var rec = new FailRec { Message = m.GetDescriptionText(), Severity = sev.ToString() };
                     foreach (var id in m.GetFailingElementIds()) rec.Ids.Add(id.GetValue());
                     foreach (var id in m.GetAdditionalElementIds()) rec.Ids.Add(id.GetValue());
-                    if (sev == FailureSeverity.Warning) Warnings.Add(rec);   // collected, NOT deleted
+                    if (sev == FailureSeverity.Warning)
+                    {
+                        Warnings.Add(rec);   // always reported in the result
+                        if (SuppressWarningUi) fa.DeleteWarning(m);
+                    }
                     else Errors.Add(rec);
                 }
                 return Errors.Count > 0 ? FailureProcessingResult.ProceedWithRollBack : FailureProcessingResult.Continue;
@@ -81,7 +87,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
 
             var ctxs = new List<Ctx>();
             var errors = new JArray();
-            var pre = new CollectingPreprocessor();
+            var pre = new CollectingPreprocessor { SuppressWarningUi = _spec.DryRun || _spec.SuppressWarningDialogs };
             bool committed = false;
 
             using (var tg = new TransactionGroup(doc, "build_elements"))
@@ -490,6 +496,12 @@ namespace RevitMCPCommandSet.Services.BuildElements
                     var h = s.HeightMm.HasValue ? mmFt(s.HeightMm.Value) : 10.0;
                     var w = Wall.Create(_doc, line, c.TypeId, c.L1.Id, h, mmFt(s.BaseOffsetMm), false, s.Structural);
                     SetWallConstraints(w, c);
+                    if (!_spec.AllowWallJoins)
+                    {
+                        // keep the requested geometry exactly: no auto-join trimming/extension of wall ends
+                        WallUtils.DisallowWallJoinAtEnd(w, 0);
+                        WallUtils.DisallowWallJoinAtEnd(w, 1);
+                    }
                     return w;
                 }
                 case "floor":

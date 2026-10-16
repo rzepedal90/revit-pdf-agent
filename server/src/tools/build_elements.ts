@@ -72,6 +72,9 @@ export function registerBuildElementsTool(server: McpServer) {
       dryRun: z.boolean().default(true).describe("Default true: preview only (rolled back). Pass false to commit."),
       mode: z.enum(["upsert", "create_only"]).default("upsert"),
       manifestHash: z.string().optional().describe("Stored next to each sourceKey"),
+      readbackToleranceMm: z.number().min(0).max(100).optional().describe("XY readback tolerance in mm (default 0.5)"),
+      wallJoins: z.enum(["allow", "disallow"]).optional().describe("disallow keeps exact wall ends (no auto-join trimming)"),
+      suppressWarningDialogs: z.boolean().optional().describe("Default true: warnings are reported in the result, not shown as Revit dialogs"),
       transform: z
         .object({ originMm: xy.optional(), rotationDeg: z.number().optional() })
         .optional()
