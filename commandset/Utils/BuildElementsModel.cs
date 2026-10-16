@@ -44,6 +44,7 @@ namespace RevitMCPCommandSet.Utils
         public bool Structural = true;   // wall
         public string LocationLine = "center"; // wall
         public string GridName;          // grid
+        public List<List<MmPoint>> Boundary; // floor: outer loop first, then holes (model mm, cleaned, implicitly closed)
         public List<ParamSpec> Parameters = new List<ParamSpec>();
     }
 
@@ -63,7 +64,7 @@ namespace RevitMCPCommandSet.Utils
         public const double AngleToleranceDeg = 0.01;
         public const double MmPerFt = 304.8;
 
-        public static readonly string[] Kinds = { "footing", "column", "beam", "wall", "grid" };
+        public static readonly string[] Kinds = { "footing", "column", "beam", "wall", "grid", "floor" };
         public static readonly string[] ZJustifications = { "top", "center", "bottom" };
         public static readonly string[] StructuralUsages = { "girder", "joist", "other" };
         public static readonly string[] LocationLines =
@@ -222,7 +223,7 @@ namespace RevitMCPCommandSet.Utils
                     it.BaseLevel = Req(o, "baseLevel");
                     it.BaseOffsetMm = ParamUtil.Dbl(o, "baseOffsetMm");
                     it.Structural = ParamUtil.BoolOr(o, "structural", true);
-                    it.LocationLine = Choice(o, "locationLine", LocationLines, "center");
+                    it.LocationLine = ParseLocationLine(ParamUtil.StrOrNull(o, "locationLine"));
                     var top = ParamUtil.StrOrNull(o, "topLevel");
                     var h = ParamUtil.AnyOrNull(o, "heightMm");
                     if (!string.IsNullOrWhiteSpace(top))
@@ -239,6 +240,12 @@ namespace RevitMCPCommandSet.Utils
                         it.HeightMm = hv;
                     }
                     RequireNonDegenerate(it);
+                    break;
+                case "floor":
+                    it.Level = Req(o, "level");
+                    it.OffsetMm = ParamUtil.Dbl(o, "offsetMm");
+                    it.Structural = ParamUtil.BoolOr(o, "structural", false);
+                    it.Boundary = ParseBoundary(o, ox, oy, rot);
                     break;
                 case "grid":
                     it.GridName = Req(o, "name");
@@ -267,6 +274,114 @@ namespace RevitMCPCommandSet.Utils
                 }
             }
             return it;
+        }
+
+        /// <summary>Accepts snake_case, camelCase and Revit enum spellings; returns the canonical snake_case option.</summary>
+        public static string ParseLocationLine(string raw)
+        {
+            if (raw == null) return "center";
+            var k = raw.Trim().ToLowerInvariant().Replace("_", "").Replace("-", "").Replace(" ", "");
+            switch (k)
+            {
+                case "center": case "wallcenterline": case "centerline": return "center";
+                case "corecenter": case "corecenterline": return "core_center";
+                case "finishexterior": case "finishfaceexterior": return "finish_exterior";
+                case "finishinterior": case "finishfaceinterior": return "finish_interior";
+                case "coreexterior": return "core_exterior";
+                case "coreinterior": return "core_interior";
+            }
+            throw Bad("Parameter 'locationLine' must be one of " + string.Join("|", LocationLines) + " (camelCase like finishFaceExterior also accepted), got '" + raw + "'.");
+        }
+
+        public const double MinSegmentMm = 1.0;
+
+        private static List<List<MmPoint>> ParseBoundary(JObject o, double ox, double oy, double rot)
+        {
+            var loops = ParamUtil.Arr(o, "boundary");
+            if (loops.Count == 0) throw Bad("'boundary' needs at least one loop (outer loop first).");
+            var result = new List<List<MmPoint>>();
+            for (int li = 0; li < loops.Count; li++)
+            {
+                var la = loops[li] as JArray ?? throw Bad("boundary[" + li + "] must be an array of {x,y} points.");
+                var pts = new List<MmPoint>();
+                for (int pi = 0; pi < la.Count; pi++)
+                {
+                    var po = la[pi] as JObject ?? throw Bad("boundary[" + li + "][" + pi + "] must be an object {x,y}.");
+                    pts.Add(ApplyTransform(new MmPoint(ParamUtil.Dbl(po, "x"), ParamUtil.Dbl(po, "y")), ox, oy, rot));
+                }
+                var clean = CleanLoop(pts);
+                if (clean.Count < 3)
+                    throw Bad("boundary[" + li + "] has " + clean.Count + " distinct points after removing segments < " + MinSegmentMm + " mm; at least 3 are required.");
+                if (Math.Abs(SignedAreaMm2(clean)) < 1.0)
+                    throw Bad("boundary[" + li + "] is degenerate (area < 1 mm2, points collinear?).");
+                result.Add(clean);
+            }
+            return result;
+        }
+
+        /// <summary>Removes consecutive points closer than MinSegmentMm (including a repeated closing point).</summary>
+        public static List<MmPoint> CleanLoop(IList<MmPoint> pts)
+        {
+            var r = new List<MmPoint>();
+            foreach (var p in pts)
+                if (r.Count == 0 || Dist(r[r.Count - 1], p) >= MinSegmentMm) r.Add(p);
+            while (r.Count > 1 && Dist(r[r.Count - 1], r[0]) < MinSegmentMm) r.RemoveAt(r.Count - 1);
+            return r;
+        }
+
+        public static double Dist(MmPoint a, MmPoint b)
+        {
+            var dx = a.X - b.X; var dy = a.Y - b.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        public static double SignedAreaMm2(IList<MmPoint> pts)
+        {
+            double a = 0;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                var p = pts[i]; var q = pts[(i + 1) % pts.Count];
+                a += p.X * q.Y - q.X * p.Y;
+            }
+            return a / 2.0;
+        }
+
+        /// <summary>Axis-aligned extent {minX,minY,maxX,maxY} of a loop.</summary>
+        public static double[] Extent(IList<MmPoint> pts)
+        {
+            double x0 = double.MaxValue, y0 = double.MaxValue, x1 = double.MinValue, y1 = double.MinValue;
+            foreach (var p in pts) { x0 = Math.Min(x0, p.X); y0 = Math.Min(y0, p.Y); x1 = Math.Max(x1, p.X); y1 = Math.Max(y1, p.Y); }
+            return new[] { x0, y0, x1, y1 };
+        }
+
+        /// <summary>True when both loops have the same vertex set within tol (order/start/direction independent).</summary>
+        public static bool LoopsEqual(IList<MmPoint> a, IList<MmPoint> b, double tol = MmTolerance)
+        {
+            if (a.Count != b.Count) return false;
+            var used = new bool[b.Count];
+            foreach (var p in a)
+            {
+                bool hit = false;
+                for (int j = 0; j < b.Count; j++)
+                    if (!used[j] && Dist(p, b[j]) <= tol) { used[j] = true; hit = true; break; }
+                if (!hit) return false;
+            }
+            return true;
+        }
+
+        /// <summary>True when both loop collections match loop-for-loop (any order) within tol.</summary>
+        public static bool BoundariesEqual(IList<List<MmPoint>> want, IList<List<MmPoint>> actual, double tol = MmTolerance)
+        {
+            if (want.Count != actual.Count) return false;
+            var used = new bool[actual.Count];
+            foreach (var w in want)
+            {
+                bool hit = false;
+                for (int j = 0; j < actual.Count; j++)
+                    if (!used[j] && LoopsEqual(w, actual[j], tol)) { used[j] = true; hit = true; break; }
+                if (!hit) return false;
+            }
+            return true;
         }
 
         private static void RequireNonDegenerate(BuildItemSpec it)

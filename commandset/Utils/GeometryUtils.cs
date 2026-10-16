@@ -203,10 +203,29 @@ public static class GeometryUtils
     {
         // Implement algorithm to calculate intersection
         // Simple method: use Revit API to find intersection
+#if REVIT2027_OR_GREATER
+        // Curve.Intersect(Curve, out IntersectionResultArray) was removed in Revit 2027: solve segment-segment intersection directly.
+        var p = line1.GetEndPoint(0);
+        var r = line1.GetEndPoint(1) - p;
+        var q = line2.GetEndPoint(0);
+        var s = line2.GetEndPoint(1) - q;
+        var rxs = r.X * s.Y - r.Y * s.X;
+        if (Math.Abs(rxs) < 1e-12) return null; // parallel/collinear in plan: no single point
+        var qp = q - p;
+        var t = (qp.X * s.Y - qp.Y * s.X) / rxs;
+        var u = (qp.X * r.Y - qp.Y * r.X) / rxs;
+        const double tol = 1e-9;
+        if (t < -tol || t > 1 + tol || u < -tol || u > 1 + tol) return null;
+        var pt = p + r * t;
+        // Reject skew lines (differing Z): require the point on line2 to match within model tolerance.
+        var pt2 = q + s * u;
+        return pt.DistanceTo(pt2) < 1e-6 ? pt : null;
+#else
         var results = new IntersectionResultArray();
         if (line1.Intersect(line2, out results) == SetComparisonResult.Overlap && results.Size > 0)
             return results.get_Item(0).XYZPoint;
         return null;
+#endif
     }
 
     /// <summary>
