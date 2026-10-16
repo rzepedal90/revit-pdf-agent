@@ -246,7 +246,9 @@ async function main() {
     console.error('usage: planar_faces.mjs <cad.json> [--layers "A,B"] [--snap 20] [--min-area 3] [--max-chord 600] [--holes] [--pinch] [--out faces.json]');
     process.exit(a.help ? 0 : 2);
   }
-  const items = JSON.parse(fs.readFileSync(a._[0], 'utf8'));
+  const raw = JSON.parse(fs.readFileSync(a._[0], 'utf8'));
+  // accept a bare item array or the get_cad_geometry outFile shape {items:[...]} (also nested under result)
+  const items = Array.isArray(raw) ? raw : (raw.items ?? raw.result?.items ?? []);
   const layers = typeof a.layers === 'string' ? a.layers.split(',').map((s) => s.trim()) : null;
   const segs = itemsToSegments(items, { layers, maxChord: Number(a['max-chord'] ?? 600) });
   let faces = planarFaces(segs, { snap: Number(a.snap ?? 20), minArea: Number(a['min-area'] ?? 3) });
