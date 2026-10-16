@@ -13,6 +13,8 @@ Fill this table from the details and sections during ANALYZE. Store it as `datum
 | Top of beam (V.F., cadenas) | per beam detail | beam Z offset |
 | Blinding (hormigon pobre) | thickness and bottom/top | separate element, separate material |
 
+Architectural projects (no foundations in scope): only the datums the categories need. `sf_mm` is **not required** unless `structural_foundations` is in scope; per-level absolute N.P.T. goes in `levels[].npt_mm` (e.g. Nivel -2 = 50000, Nivel 1 = 58000), and `datum_table.npt_mm` may then be omitted. `rules` are required only for the categories in scope, and include `floor` (`top` = level + offset = top of slab, `bottom` = top - thickness) next to `column`/`wall`. Level elevations (`levels[].elevation_mm`, relative to the project origin) still must be stated, never inferred from names.
+
 Rules:
 
 - No Z value is guessed, inherited from a family default or taken from a level name. Set every base/top level and offset explicitly and read it back.

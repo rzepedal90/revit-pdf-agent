@@ -13,7 +13,7 @@ import {hash} from './execution_runner.mjs';
 import {summarize} from './json_summary.mjs';
 import {validateManifest, KIND_BY_CATEGORY} from './validate_manifest.mjs';
 
-export const STAGES = ['grid', 'footing', 'column', 'beam', 'wall'];
+export const STAGES = ['grid', 'footing', 'column', 'beam', 'wall', 'floor'];
 export const MAX_PER_CHUNK = 500;
 const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const xy = ([x, y]) => ({x, y});
@@ -24,6 +24,14 @@ function toElement(row, kind, type) {
   const el = {sourceKey: row.source_key, kind};
   if (kind === 'grid') {
     Object.assign(el, {name: row.name, start: xy(g.start), end: xy(g.end)});
+  } else if (kind === 'floor') {
+    // Floors are system-family types: typeName only. boundary = loops of {x,y} (outer first, holes after).
+    el.typeName = type.type;
+    Object.assign(el, {
+      level: z.level, offsetMm: z.offset_mm,
+      boundary: g.boundary.map((loop) => loop.map(xy)),
+      structural: row.structural ?? row.category === 'structural_floors',
+    });
   } else {
     el.familyName = type.family;
     el.typeName = type.type;
@@ -43,7 +51,7 @@ function toElement(row, kind, type) {
     } else {
       Object.assign(el, {
         start: xy(g.start), end: xy(g.end), baseLevel: z.base_level, baseOffsetMm: z.base_offset_mm,
-        structural: row.structural ?? true, locationLine: 'center',
+        structural: row.category === 'architectural_walls' ? false : (row.structural ?? true), locationLine: 'center',
       });
       if (z.height_mm !== undefined) el.heightMm = z.height_mm;
       else Object.assign(el, {topLevel: z.top_level, topOffsetMm: z.top_offset_mm});
@@ -96,7 +104,11 @@ export function compileBuildPayloads(manifest, {maxPerChunk = MAX_PER_CHUNK, dry
     }
   }
   const counts = Object.fromEntries(STAGES.map((s) => [s, byStage[s].length]));
-  return {manifestHash, counts, total: Object.values(counts).reduce((a, b) => a + b, 0), payloads, skipped};
+  // Levels are not build_elements rows: levels with action 'create' go to a separate create_level payload.
+  const levelsToCreate = (manifest.levels ?? []).filter((l) => l.action === 'create')
+    .map((l) => ({name: l.name, elevation: l.elevation_mm}))
+    .sort((a, b) => a.elevation - b.elevation || cmp(a.name, b.name));
+  return {manifestHash, counts, total: Object.values(counts).reduce((a, b) => a + b, 0), payloads, skipped, levelsToCreate};
 }
 
 export function main(argv = process.argv.slice(2), out = (line) => console.log(line)) {
@@ -116,9 +128,17 @@ export function main(argv = process.argv.slice(2), out = (line) => console.log(l
     writeFileSync(join(dir, file), JSON.stringify(payload, null, 2) + '\n');
     return {file, stage, elements: payload.elements.length, payloadHash: hash(payload)};
   });
-  const summary = {manifestHash: result.manifestHash, counts: result.counts, total: result.total, files, skipped: result.skipped};
+  let levelsFile;
+  if (result.levelsToCreate.length) {
+    levelsFile = 'levels_to_create.json';
+    writeFileSync(join(dir, levelsFile), JSON.stringify({
+      manifestHash: result.manifestHash, tool: 'create_level', data: result.levelsToCreate,
+    }, null, 2) + '\n');
+  }
+  const summary = {manifestHash: result.manifestHash, levelsToCreate: levelsFile ? {file: levelsFile, count: result.levelsToCreate.length} : undefined, counts: result.counts, total: result.total, files, skipped: result.skipped};
   writeFileSync(join(dir, 'compile_summary.json'), JSON.stringify(summary, null, 2) + '\n');
   out(JSON.stringify({
+    levelsToCreate: summary.levelsToCreate,
     outDir: dir, manifestHash: result.manifestHash, counts: result.counts, total: result.total,
     files: summarize(summary, {path: 'files', limit: 20}),
     skipped: summarize(summary, {path: 'skipped', limit: 10}),

@@ -9,6 +9,9 @@ For every source record: stable source ID, absolute path, SHA-256, sheet number,
 
 - Exactly one `primary` source = the human-aligned, pinned Revit underlay.
 - Record whether each supplementary source is registered in Revit. Unregistered sources give non-positional evidence only.
+- **`aligned_cad`** (optional, any number): a DWG `ImportInstance` the human pinned and aligned to the anchor grids at import scale 1.0. It has positional authority (exact model coordinates) and needs `registered_in_revit`, `positional_authority`, `human_aligned`, `human_scaled`, `pinned_expected`, `immutable` all true, plus `cad`: `scale` (1), `anchor_checks` (`[{grid, deviation_mm}]`, each <= 1 mm), and `layer_map` (`{layer: element class}`, human-confirmed). An unaligned or unpinned DWG is `supplementary` with `positional_authority: false`.
+- Read the CAD per layer with `get_cad_geometry` (`layers` to list, `geometry` with layer filters) using `outFile`; process the file with scripts, never paste segments into the conversation. DWG text is not geometry: names come from the PDF text layer or the human.
+- Evidence authority (high to low): human-confirmed > written dimensions/schedules > aligned CAD geometry > written dimensions on the primary plan > PDF-measured geometry > visual inference. With an aligned CAD the PDF supplies names/labels/legend/context, not coordinates.
 - Do not trace detail geometry from a sheet scaled for its plan viewport; read detail geometry from written dimensions.
 - Extract text/vector data from the PDF first (labels, dimension strings, schedules). Count labels per mark (F1, F4, P1 ...) now; these counts feed `acceptance_tests.expected_counts`.
 
@@ -20,7 +23,11 @@ Record whether the MCP exposes `get_spatial_reference`. When available, capture 
 
 ## Scope
 
-Record selected categories (ask once if absent): `grids`, `structural_columns`, `structural_framing`, `structural_foundations`, `structural_walls`, `structural_floors`, `openings`. `rebar` is always `false`; never offer reinforcement.
+Record selected categories (ask once if absent): `grids`, `structural_columns`, `structural_framing`, `structural_foundations`, `structural_walls`, `architectural_walls`, `floors`, `structural_floors`, `levels`, `openings`. `levels` means the human authorized the agent to create the missing levels (otherwise levels are human-made and only read). `rebar` is always `false`; never offer reinforcement.
+
+## Layer map (CAD-aligned projects)
+
+List the layers (`get_cad_geometry` mode `layers`: name, entity counts, bounding box) and propose a mapping layer -> element class (`0-PILARES` -> columns, `000-EJES` -> grids, wall layer -> architectural walls, interior-area layer -> floors, ignore the rest). Ask the human to confirm it in the one clarification round and store it in `sources[].cad.layer_map`.
 
 ## Optional documentation
 
@@ -35,6 +42,14 @@ Derive the transform from `get_spatial_reference` (image center + four corner po
 ## Levels, datums and vertical rules
 
 Record level names, ElementIds, elevations, and element-specific Z rules, plus the mandatory **datum table** ([elevation-datum-table.md](elevation-datum-table.md)): N.P.T., O.G./N.O.G., S.F., tops of footings/pedestals/columns/beams, blinding. A foundation level alone does not define insertion planes or tops.
+
+Each manifest level carries `action`: `existing` (human-made, read only) or `create` (the human asked the agent to create it; requires `levels` in scope). Architectural projects: give each level its absolute N.P.T. as `npt_mm` (e.g. Nivel 1 = 0 relative, +58000 absolute); S.F./blinding rows are only needed when foundations are in scope.
+
+## Placement rules for CAD-aligned projects
+
+- **Snap to grid intersections** (when the human says so): element XY = exact intersection from the grid table; record the CAD point and deviation in `snap`; deviation above the tolerance (default 50 mm, `acceptance_tests.snap_tolerance_mm`) is a wrong match and fails validation.
+- **Inset plans** (e.g. Level 2 drawn elsewhere on the sheet): place by grid-name references, derive the inset -> model transform from >= 2 matched grid intersections and record it in `coordinate_basis.insets[]` (own basis, never mixed with the primary transform).
+- **Floors** only where the plan marks interior areas (LOCALES, HIPERMERCADO ...); no outdoor slabs. Names of areas come from the PDF text or the human. Each floor needs an exact boundary (outer loop plus holes) and a top offset from its level.
 
 ## Type inputs
 

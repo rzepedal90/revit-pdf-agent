@@ -32,7 +32,9 @@ Require `rvt_path`, `rvt_title`, `revit_version`, `mcp_version`, `active_view`, 
 
 ## Sources
 
-Each: `source_id`, `role` (`primary`|`supplementary`), `path`, `sha256`, `sheet`, `revision`, `units`, `registered_in_revit`, `positional_authority`, `drawing_regions`, plus `human_aligned`, `human_scaled`, `pinned_expected`, `immutable`. Exactly one primary; it must have all four flags true, `registered_in_revit` true and `positional_authority` true. A supplementary source that is not registered must have `positional_authority: false`.
+Each: `source_id`, `role` (`primary`|`supplementary`|`aligned_cad`), `path`, `sha256`, `sheet`, `revision`, `units`, `registered_in_revit`, `positional_authority`, `drawing_regions`, plus `human_aligned`, `human_scaled`, `pinned_expected`, `immutable`. Exactly one primary; it must have all four flags true, `registered_in_revit` true and `positional_authority` true. A supplementary source that is not registered must have `positional_authority: false`.
+
+`aligned_cad` (DWG ImportInstance pinned and aligned to the anchors; any number allowed besides the one primary): registered, positional authority and all four flags true, plus `cad: {scale: 1, anchor_checks: [{grid, deviation_mm}] (non-empty, each |deviation| <= 1), layer_map: {layer: element class} (non-empty, human-confirmed)}`. Does not count as the primary.
 
 ## Scope
 
@@ -41,6 +43,8 @@ Each: `source_id`, `role` (`primary`|`supplementary`), `path`, `sha256`, `sheet`
 ## Coordinate basis
 
 Manifest coordinates are drawing/grid-relative integer mm. `coordinate_basis.transform_to_model = {"originMm": {"x": int, "y": int}, "rotationDeg": number}` maps them to model coordinates (required in `PLAN`/`EXECUTE`); the compiler passes it unchanged as `build_elements.transform`.
+
+Optional `coordinate_basis.insets[]` records a separate basis for an inset plan placed by grid references: `{name, matched_grid_intersections: [{grid_x, grid_y, inset_mm:[x,y], model_mm:[x,y]}] (>= 2), transform_to_model: {originMm, rotationDeg}}`. Element rows carry final manifest-basis coordinates; the inset transform is evidence.
 
 When `grids` is in scope require `origin`, `positive_x`, `positive_y`, `coordinate_policy`, `anchors` (each with name plus ElementId/UniqueId when known) and a `registration_checks` list.
 
@@ -68,7 +72,7 @@ Stable keys look like `1725-S401/F3/017`. Never use ElementIds as source keys; r
  "rows": [{"name": "N.P.T.", "value_mm": 0, "level_ref": "NPT", "evidence": "S301 sec A", "status": "resolved"}]}
 ```
 
-`npt_mm` and `sf_mm` are integers (mm); `og_mm` and `top_of_footing_mm` are optional integers. `rules.<footing|column|beam|wall>` each need non-blank `top` and `bottom` (a text rule or datum reference explaining how that category's top/bottom Z is derived; it justifies the rows' `z_constraints`). `rows` is the evidence trail: recommended, not validated.
+`sf_mm` is an integer (mm) **required only when `structural_foundations` is in scope**; `npt_mm` is an integer, optional only when every manifest level has its own integer `npt_mm` (architectural datums per level). `og_mm` and `top_of_footing_mm` are optional integers. `rules.<footing|column|beam|wall|floor>` are required **only for the categories in scope** (`structural_foundations`->footing, `structural_columns`->column, `structural_framing`->beam, `structural_walls`/`architectural_walls`->wall, `floors`/`structural_floors`->floor); each needs non-blank `top` and `bottom` (a text rule or datum reference explaining how that category's top/bottom Z is derived; it justifies the rows' `z_constraints`). `rows` is the evidence trail: recommended, not validated.
 
 ## Element and type geometry conventions (normative; maps 1:1 onto `build_elements`)
 
@@ -80,9 +84,15 @@ All lengths are **integer mm**; `rotation_deg` is a number; level fields are Rev
 | `structural_columns` (column) | `{x, y, rotation_deg}` | `{base_level, base_offset_mm, top_level, top_offset_mm}` | `point, rotationDeg, baseLevel, baseOffsetMm, topLevel, topOffsetMm` |
 | `structural_framing` (beam) | `{start:[x,y], end:[x,y]}` | `{level, start_offset_mm, end_offset_mm, z_justification}` (`top`, `center` or `bottom`) | `start, end, level, startOffsetMm, endOffsetMm, zJustification` |
 | `structural_walls` (wall) | `{start:[x,y], end:[x,y]}` | `{base_level, base_offset_mm}` plus exactly one of `{top_level, top_offset_mm}` or `{height_mm}` | `start, end, baseLevel, baseOffsetMm`, then `topLevel+topOffsetMm` or `heightMm`; `structural` from row `structural` (default true); `locationLine` always `center` |
+| `architectural_walls` (wall) | same as `structural_walls` | same as `structural_walls` | same, but `structural` is always `false` (a row with `structural: true` is invalid) |
+| `floors` / `structural_floors` (floor) | `{boundary: [[[x,y],...], ...]}`: loops of >= 3 integer points, **outer loop first, holes after**, first point not repeated at the end, non-zero area | `{level, offset_mm}` (top of slab = level + offset) | `level, offsetMm, boundary` (loops of `{x,y}`), `structural` (row value; default `false` for `floors`, `true` for `structural_floors`), `typeName` only (system family) |
 | `grids` (grid) | `{start:[x,y], end:[x,y]}` plus row `name` | none | `name, start, end` |
 
-Optional row fields: `group` (string), `structural_usage` (beam), `structural` (wall), `parameters` (`[{name,value,units}]`, passed through).
+Optional row fields: `group` (string), `structural_usage` (beam), `structural` (wall/floor, boolean), `parameters` (`[{name,value,units}]`, passed through), `snap` (see below).
+
+**Levels** are not element rows. Top-level `levels: [{name, elevation_mm, action, npt_mm?}]`: `action` is `existing` (human-made) or `create` (agent creates it; allowed only when `levels` is in `scope.categories`, and then `action` is required on every level). `npt_mm` = absolute N.P.T. of the level (integer mm). The compiler writes the `create` levels to `levels_to_create.json` for `create_level`; they never appear in `build_elements`.
+
+**Snap evidence** (`snap` on a point row, PLAN/EXECUTE, resolved rows): `{grid_x, grid_y, intersection_mm:[x,y], cad_mm:[x,y], deviation_mm, tolerance_mm?}`. `geometry_mm.x/y` must equal `intersection_mm`; `deviation_mm` must match `cad_mm` vs `intersection_mm` (+-1 mm); the deviation must not exceed `tolerance_mm` (else `acceptance_tests.snap_tolerance_mm`, else 50 mm).
 
 **Type linkage.** Non-grid rows carry `type_key` naming a resolved `type_manifest` row. Resolved type rows must have `family`, `type`, `dimensions_mm` (non-empty object of integer mm), `material` and `action` (`reuse|duplicate|load`). The compiler sends `familyName = family`, `typeName = type` (typeIds are unknown until runtime).
 

@@ -1,0 +1,262 @@
+{
+  "count": 8,
+  "items": [
+    {
+      "id": 2001,
+      "uniqueId": "uid-2001",
+      "category": "Structural Columns",
+      "family": "Pilar Rect",
+      "type": "P 500x500",
+      "material": "H-30",
+      "sourceKey": "ARQ-01/C/001",
+      "location": {
+        "point": [
+          1000,
+          2000,
+          0
+        ],
+        "rotationDeg": 0
+      },
+      "bbox": {
+        "min": [
+          750,
+          1750,
+          0
+        ],
+        "max": [
+          1250,
+          2250,
+          5500
+        ]
+      },
+      "offsets": {
+        "baseLevel": "Nivel 1",
+        "topLevel": "Nivel 2",
+        "baseOffset": 0,
+        "topOffset": 0
+      }
+    },
+    {
+      "id": 2002,
+      "uniqueId": "uid-2002",
+      "category": "Structural Columns",
+      "family": "Pilar Rect",
+      "type": "P 500x500",
+      "material": "H-30",
+      "sourceKey": "ARQ-01/C/002",
+      "location": {
+        "point": [
+          11000,
+          10000,
+          -4500
+        ],
+        "rotationDeg": 0
+      },
+      "bbox": {
+        "min": [
+          10750,
+          9750,
+          -4500
+        ],
+        "max": [
+          11250,
+          10250,
+          0
+        ]
+      },
+      "offsets": {
+        "baseLevel": "Nivel -1",
+        "topLevel": "Nivel 1",
+        "baseOffset": 0,
+        "topOffset": 0
+      }
+    },
+    {
+      "id": 2003,
+      "uniqueId": "uid-2003",
+      "category": "Walls",
+      "family": "Basic Wall",
+      "type": "Generico - 200",
+      "material": "Concreto",
+      "sourceKey": "ARQ-01/W/001",
+      "location": {
+        "start": [
+          1000,
+          2000,
+          0
+        ],
+        "end": [
+          21000,
+          2000,
+          0
+        ]
+      },
+      "bbox": {
+        "min": [
+          1000,
+          1900,
+          0
+        ],
+        "max": [
+          21000,
+          2100,
+          5500
+        ]
+      }
+    },
+    {
+      "id": 2004,
+      "uniqueId": "uid-2004",
+      "category": "Floors",
+      "family": "Floor",
+      "type": "Generico 150",
+      "material": "Concreto",
+      "sourceKey": "ARQ-01/L/001",
+      "bbox": {
+        "min": [
+          1000,
+          2000,
+          -150
+        ],
+        "max": [
+          21000,
+          10000,
+          0
+        ]
+      },
+      "areaMm2": 156000000
+    },
+    {
+      "id": 2010,
+      "uniqueId": "uid-2010",
+      "category": "Grids",
+      "family": null,
+      "type": null,
+      "material": null,
+      "sourceKey": "ARQ-01/grid/A",
+      "location": {
+        "start": [
+          1000,
+          2000,
+          0
+        ],
+        "end": [
+          21000,
+          2000,
+          0
+        ]
+      },
+      "bbox": {
+        "min": [
+          1000,
+          2000,
+          0
+        ],
+        "max": [
+          21000,
+          2000,
+          0
+        ]
+      }
+    },
+    {
+      "id": 2011,
+      "uniqueId": "uid-2011",
+      "category": "Grids",
+      "family": null,
+      "type": null,
+      "material": null,
+      "sourceKey": "ARQ-01/grid/B",
+      "location": {
+        "start": [
+          1000,
+          10000,
+          0
+        ],
+        "end": [
+          21000,
+          10000,
+          0
+        ]
+      },
+      "bbox": {
+        "min": [
+          1000,
+          10000,
+          0
+        ],
+        "max": [
+          21000,
+          10000,
+          0
+        ]
+      }
+    },
+    {
+      "id": 2012,
+      "uniqueId": "uid-2012",
+      "category": "Grids",
+      "family": null,
+      "type": null,
+      "material": null,
+      "sourceKey": "ARQ-01/grid/1",
+      "location": {
+        "start": [
+          1000,
+          2000,
+          0
+        ],
+        "end": [
+          1000,
+          10000,
+          0
+        ]
+      },
+      "bbox": {
+        "min": [
+          1000,
+          2000,
+          0
+        ],
+        "max": [
+          1000,
+          10000,
+          0
+        ]
+      }
+    },
+    {
+      "id": 2013,
+      "uniqueId": "uid-2013",
+      "category": "Grids",
+      "family": null,
+      "type": null,
+      "material": null,
+      "sourceKey": "ARQ-01/grid/2",
+      "location": {
+        "start": [
+          11000,
+          2000,
+          0
+        ],
+        "end": [
+          11000,
+          10000,
+          0
+        ]
+      },
+      "bbox": {
+        "min": [
+          11000,
+          2000,
+          0
+        ],
+        "max": [
+          11000,
+          10000,
+          0
+        ]
+      }
+    }
+  ]
+}

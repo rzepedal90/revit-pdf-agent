@@ -41,6 +41,23 @@ Do these steps by hand. The agent checks them but never fixes them for you.
 | 9 | **Scope** | Decide which categories to model: grids, structural foundations, columns, framing, walls, floors/slabs, openings. Also decide whether you want native dimensions (analysis only for now). | The agent models only what you select. |
 | 10 | **Project facts you already know** | Anything not on the sheets: concrete grade, blinding thickness and material (e.g. 50 mm "Hormigon pobre"), column sizes, where column stubs stop, the sector boundary. | These become "human-confirmed" evidence, which ranks above anything read from the drawing. |
 
+### Optional: an aligned DWG (architectural or low-detail projects)
+
+If you also have the plan as a DWG, import it and align it the same way as the PDF. The agent then reads exact coordinates from the CAD and uses the PDF for names and labels only.
+
+| # | Input | How to do it |
+|---|---|---|
+| A | **DWG import** | Insert the DWG (Link or Import) into the model at scale 1.0 (**Import Units**: the DWG's own units, no custom scale). Keep the origin consistent with the PDF. |
+| B | **Alignment** | Move/rotate the DWG so a CAD grid line coincides with **each** anchor grid (within 1 mm). Anchor grids must be on the CAD grid axes (e.g. layer `000-EJES`). |
+| C | **Pin** | Pin the DWG ImportInstance. |
+| D | **Layer meaning** | The agent lists the CAD layers (`get_cad_geometry`) and proposes what each is (`0-PILARES` columns, `000-EJES` grids, the wall layer, the interior-area layer). Confirm or correct this in the question round. |
+| E | **Names** | DWG text is not imported as geometry: area/room names (LOCALES, HIPERMERCADO ...) and grid labels come from the PDF or from you. |
+| F | **Inset plans** | If a level is drawn as an inset elsewhere on the sheet (e.g. Level 2), say so: the agent places its elements by grid names, deriving the transform from at least two matching grid intersections. |
+| G | **Levels** | Create the levels yourself, or say "create the missing levels" and give names and elevations (e.g. Nivel -2 = -8000, Nivel -1 = -4500, Nivel 1 = 0, Nivel 2 = +5500, with absolute N.P.T. +50.00 / +53.50 / +58.00 / +63.50). |
+| H | **Snapping** | Say if columns must snap to grid intersections. The agent then uses the exact intersection and records the CAD deviation; a deviation above 50 mm (or the tolerance you state) is treated as a wrong match and blocked. |
+
+Categories available for such projects: grids, structural columns (level-to-level), architectural walls (generic, non-structural), floors (generic, only the interior areas marked on the plan; no outdoor slabs), levels.
+
 ## 3. Starting a run
 
 In Claude Code, opened in this repository, say for example:
@@ -61,7 +78,8 @@ Use **Opus** for this conversation. The agent may hand execution and QA to a **S
 3. **Approval.** You approve the coordinate table, the elevation table, the type plan, the element list with expected counts, and what's excluded or blocked. The manifest is then **frozen** and validated (`validate_manifest.mjs`).
 4. **EXECUTE.**
    - Missing family types are duplicated from the closest matching type and configured from the details.
-   - Elements are built in stages through `build_elements`: grids, footings, columns, beams, walls.
+   - Missing levels (only if you asked for them) are created first from `levels_to_create.json`.
+   - Elements are built in stages through `build_elements`: grids, footings, columns, beams, walls, floors.
    - Each stage is first dry-run, then committed. Every element carries a source key such as `1725-S301/F3/017`, so a rerun updates elements instead of duplicating them.
 5. **QA.** `qa_model.mjs` compares every element against the manifest and reports:
    - counts, types and materials
