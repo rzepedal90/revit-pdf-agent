@@ -230,6 +230,8 @@ export function validateManifest(data) {
     if (policy[field] !== expected) errors.push(`execution_policy.${field} must be ${String(expected)}`);
   }
 
+  validateBuildOptions(policy.build_options, errors);
+
   if (mode === 'ANALYZE') {
     if (policy.commit_authorized !== false) errors.push('ANALYZE requires commit_authorized false');
     if (policy.expected_revit_changes !== 0) errors.push('ANALYZE requires expected_revit_changes 0');
@@ -615,14 +617,37 @@ export function validateFlowManifest(value, errors) {
   return categories;
 }
 
+const MAX_PRINTED_ERRORS = 30;
+
+/** Optional execution_policy.build_options, copied by the compiler into every build_elements payload. */
+export function validateBuildOptions(value, errors) {
+  if (value === undefined) return;
+  if (!isObj(value)) { errors.push('execution_policy.build_options must be an object'); return; }
+  const known = ['readbackToleranceMm', 'wallJoins', 'suppressWarningDialogs'];
+  const extra = Object.keys(value).filter((k) => !known.includes(k));
+  if (extra.length) errors.push(`execution_policy.build_options has unsupported fields: ${extra.join(', ')}`);
+  const tol = value.readbackToleranceMm;
+  if (tol !== undefined && !(typeof tol === 'number' && Number.isFinite(tol) && tol >= 0 && tol <= 100)) {
+    errors.push('execution_policy.build_options.readbackToleranceMm must be a number between 0 and 100');
+  }
+  if (value.wallJoins !== undefined && value.wallJoins !== 'allow' && value.wallJoins !== 'disallow') {
+    errors.push("execution_policy.build_options.wallJoins must be 'allow' or 'disallow'");
+  }
+  if (value.suppressWarningDialogs !== undefined && typeof value.suppressWarningDialogs !== 'boolean') {
+    errors.push('execution_policy.build_options.suppressWarningDialogs must be a boolean');
+  }
+}
+
 export function main(argv = process.argv.slice(2)) {
-  if (argv.length !== 1) {
-    process.stderr.write('usage: validate_manifest.mjs manifest\n');
+  const flags = new Set(argv.filter((a) => a === '--json' || a === '--all'));
+  const rest = argv.filter((a) => !flags.has(a));
+  if (rest.length !== 1) {
+    process.stderr.write('usage: validate_manifest.mjs manifest [--json] [--all]\n');
     return 2;
   }
   let data;
   try {
-    data = JSON.parse(readFileSync(argv[0], 'utf8').replace(/^﻿/, ''));
+    data = JSON.parse(readFileSync(rest[0], 'utf8').replace(/^\uFEFF/, ''));
   } catch (exc) {
     process.stderr.write(`INVALID: ${exc.message}\n`);
     return 1;
@@ -633,15 +658,20 @@ export function main(argv = process.argv.slice(2)) {
   }
   const errors = validateManifest(data);
   for (const warning of manifestWarnings(data)) process.stderr.write(`WARNING: ${warning}\n`);
+  if (flags.has('--json')) {
+    console.log(JSON.stringify({valid: errors.length === 0, errorCount: errors.length, errors}));
+    return errors.length ? 1 : 0;
+  }
   if (errors.length) {
     console.log('INVALID');
-    for (const error of errors) console.log(`- ${error}`);
+    const shown = flags.has('--all') ? errors : errors.slice(0, MAX_PRINTED_ERRORS);
+    for (const error of shown) console.log(`- ${error}`);
+    if (shown.length < errors.length) console.log(`... ${errors.length - shown.length} more errors (use --all or --json)`);
     return 1;
   }
   console.log('VALID');
   return 0;
 }
-
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   process.exitCode = main();
 }

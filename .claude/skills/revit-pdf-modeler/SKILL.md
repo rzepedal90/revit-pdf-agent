@@ -86,7 +86,7 @@ Read [references/input-contract.md](references/input-contract.md) while collecti
 node .claude/skills/revit-pdf-modeler/scripts/validate_manifest.mjs <manifest.json>
 ```
 
-Exit 0 prints `VALID`; exit 1 prints `INVALID` and one `- message` per failure. Before execution the user approves: coordinate table, datum table, type plan, element manifest (with per-category expected counts), exclusions, unresolved register. Mark it frozen; execution never reinterprets it.
+Exit 0 prints `VALID`; exit 1 prints `INVALID` and up to 30 `- message` lines then `... N more errors (use --all or --json)`; `--json` prints `{valid, errorCount, errors[]}` and `--all` prints every error (redirect to a file; do not paste into context). Before execution the user approves: coordinate table, datum table, type plan, element manifest (with per-category expected counts), exclusions, unresolved register. Mark it frozen; execution never reinterprets it.
 
 ## Execute through the Revit MCP
 
@@ -97,10 +97,10 @@ EXECUTE flow (all scripts in `.claude/skills/revit-pdf-modeler/scripts/`):
 1. `node validate_manifest.mjs manifest.json` -> `VALID`.
 2. `node compile_build_payload.mjs manifest.json --out-dir out/payloads` -> deterministic staged payload files (grids, footings, columns, beams, walls, floors; at most 500 elements per file; blocked/excluded rows skipped and listed) plus the canonical `manifestHash`. Levels with `action: "create"` are **not** in `build_elements`: they are written to `levels_to_create.json` (send its `data` to `create_level` before step 4; levels are created only when the human authorized the `levels` category).
 3. Ensure types exist (`get_available_family_types`; `duplicate_family_type` for missing ones).
-4. `node revit_rpc.mjs build_elements out/payloads/<file>.json --allow-write --out out/dry.json` (dry run; the client rejects non-`dryRun:true` payloads).
+4. `node revit_rpc.mjs build_elements out/payloads/<file>.json --allow-write --chunk-bytes 60000 --out out/dry.json` (dry run; the client rejects non-`dryRun:true` payloads). `--chunk-bytes N` (optional) splits `elements` into sequential requests below N bytes, aggregates counts/warnings/errors, stops at the first failed chunk and writes the full aggregate to `--out`. Run options (`readbackToleranceMm`, `wallJoins`, `suppressWarningDialogs`) come from `execution_policy.build_options` and are already in every payload.
 5. Review warnings/errors in the bounded summary; stop on anything unexpected.
-6. Same command plus `--commit` to commit the identical payload, chunk by chunk, stopping at the first failure.
-7. QA: read back through `revit_rpc.mjs` (`get_elements_info`, `find_by_source_key`) into a file, then `node qa_model.mjs manifest.json readback.json`.
+6. Same command plus `--commit` to commit the identical payload, stopping at the first failed chunk.
+7. `node revit_rpc.mjs readback <SHEET/> [<prefix>...] --out out/qa` pages `find_by_source_key` and fetches `get_elements_info` in batches of 150, writing `out/qa/sources.json` and `out/qa/readback.json`; then `node qa_model.mjs --manifest manifest.json --readback out/qa/readback.json --sources out/qa/sources.json`.
 
 **This script path saves LLM tokens**: manifests, payloads and readbacks never pass through the model context; only bounded summaries (counts, first warnings/errors) do. `revit_rpc.mjs` only runs read-only commands (`get_*`, `find_*`, `query_where`, `say_hello`) unless `--allow-write` is given. Use the individual MCP tools (`create_*`, `set_parameter`, `send_code_to_revit`) only for fallbacks and one-off fixes, and never improvise unreviewed C#.
 

@@ -105,3 +105,17 @@ test('CLI writes payload files and a bounded summary', () => {
   const written = JSON.parse(readFileSync(join(dir, FILES[1]), 'utf8'));
   assert.deepEqual(written, compileBuildPayloads(fixture()).payloads[1].payload);
 });
+
+test('execution_policy.build_options is copied into every payload', () => {
+  const m = fixture();
+  m.execution_policy.build_options = {readbackToleranceMm: 2, wallJoins: 'disallow', suppressWarningDialogs: false};
+  const r = compileBuildPayloads(m);
+  assert.ok(r.payloads.length > 1);
+  for (const {payload} of r.payloads) {
+    assert.equal(payload.readbackToleranceMm, 2);
+    assert.equal(payload.wallJoins, 'disallow');
+    assert.equal(payload.suppressWarningDialogs, false);
+  }
+  const plain = compileBuildPayloads(fixture());
+  for (const {payload} of plain.payloads) assert.ok(!('wallJoins' in payload) && !('readbackToleranceMm' in payload));
+});

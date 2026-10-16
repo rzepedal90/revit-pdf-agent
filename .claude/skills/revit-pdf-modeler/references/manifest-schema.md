@@ -26,6 +26,8 @@ One JSON object with `schema_version` `"1.0"`. Validate with `node scripts/valid
 
 Additional top-level field `datum_table` (object; see [Datum table](#datum-table) and [elevation-datum-table.md](elevation-datum-table.md)): **required and validated in `PLAN`/`EXECUTE`**; in `ANALYZE` a missing or incomplete table only prints `WARNING:` lines on stderr.
 
+`execution_policy.build_options` (optional object): `{"readbackToleranceMm": number 0..100, "wallJoins": "allow"|"disallow", "suppressWarningDialogs": boolean}`. Every key is optional; the validator rejects other keys and wrong types, and `compile_build_payload.mjs` copies the present keys into every `build_elements` payload.
+
 ## Target
 
 Require `rvt_path`, `rvt_title`, `revit_version`, `mcp_version`, `active_view`, `unit_system`, `phase`, `workset`, `design_option`. Values may be `null` in `ANALYZE` only when a clarification requests them.

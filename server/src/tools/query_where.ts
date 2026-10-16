@@ -19,7 +19,7 @@ const parameterFilter = z.object({
 export function registerQueryWhereTool(server: McpServer) {
   server.tool(
     "query_where",
-    "Read-only count and ids of elements matching a parameter predicate. Returns {count, ids (up to limit), truncated} and, with groupBy, {groups:[{key,count}]}. Use for 'how many X exist' checks.",
+    "Read-only count and ids of elements matching a parameter predicate. Returns {count, offset, ids (page of up to limit), truncated, hasMore, nextOffset?} and, with groupBy, {groups:[{key,count}]}. Use for 'how many X exist' checks.",
     {
       category: z
         .string()

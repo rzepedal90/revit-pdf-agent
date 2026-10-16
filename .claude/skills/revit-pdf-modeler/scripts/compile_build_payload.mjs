@@ -87,6 +87,9 @@ export function compileBuildPayloads(manifest, {maxPerChunk = MAX_PER_CHUNK, dry
 
   const manifestHash = hash(manifest);
   const transform = manifest.coordinate_basis.transform_to_model;
+  const opts = manifest.execution_policy?.build_options ?? {};
+  const buildOptions = {};
+  for (const k of ['readbackToleranceMm', 'wallJoins', 'suppressWarningDialogs']) if (opts[k] !== undefined) buildOptions[k] = opts[k];
   const payloads = [];
   for (const stage of STAGES) {
     const elements = byStage[stage].sort((a, b) => cmp(a.sourceKey, b.sourceKey));
@@ -96,7 +99,7 @@ export function compileBuildPayloads(manifest, {maxPerChunk = MAX_PER_CHUNK, dry
         stage,
         file: `build_payload_${String(index).padStart(3, '0')}_${stage}.json`,
         payload: {
-          dryRun, mode: 'upsert', manifestHash,
+          dryRun, mode: 'upsert', manifestHash, ...buildOptions,
           transform: {originMm: {x: transform.originMm.x, y: transform.originMm.y}, rotationDeg: transform.rotationDeg},
           elements: elements.slice(i, i + maxPerChunk),
         },

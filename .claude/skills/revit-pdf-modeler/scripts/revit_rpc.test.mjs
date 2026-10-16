@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import * as net from 'node:net';
 import {mkdtempSync, writeFileSync, readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {join, resolve} from 'node:path';
 import {parseArgs, applyGuards, isReadOnlyCommand, sendCommand, main} from './revit_rpc.mjs';
 
 /** Mock plugin: records the raw bytes of each request, replies in two chunks, returns reply(request). */
@@ -133,5 +133,115 @@ test('main: --commit flips dryRun false; blocked invocations never touch the net
       {...io, readStdin: () => JSON.stringify({dryRun: true, elements: []})}), 0);
     assert.equal(received.length, 1);
     assert.equal(received[0].req.params.dryRun, false);
+  } finally { server.close(); }
+});
+
+// --- chunking and readback ---
+import {chunkElements, runChunked} from './revit_rpc.mjs';
+
+test('chunkElements splits below the byte limit, keeps order, oversized element goes alone', () => {
+  const elements = Array.from({length: 40}, (_, i) => ({sourceKey: `K/${String(i).padStart(3, '0')}`, pad: 'x'.repeat(50)}));
+  const params = {dryRun: true, mode: 'upsert', elements};
+  const chunks = chunkElements(params, 1000);
+  assert.ok(chunks.length > 3);
+  assert.deepEqual(chunks.flat(), elements);
+  for (const c of chunks) {
+    const bytes = Buffer.byteLength(JSON.stringify({jsonrpc: '2.0', method: 'build_elements', params: {...params, elements: c}, id: '0'.repeat(19)}));
+    assert.ok(bytes <= 1000 || c.length === 1, `chunk of ${c.length} is ${bytes} bytes`);
+  }
+  assert.equal(chunkElements(params, 10 ** 9).length, 1);
+  assert.deepEqual(chunkElements({elements: []}, 100), [[]]);
+  const big = [{sourceKey: 'a', pad: 'y'.repeat(5000)}, {sourceKey: 'b'}];
+  assert.deepEqual(chunkElements({elements: big}, 500).map((c) => c.length), [1, 1]);
+});
+
+test('main --chunk-bytes: sequential requests, aggregated counts, full results in --out', async () => {
+  const {server, received, port} = await mockServer((req) => ({result: {
+    ok: true, dryRun: req.params.dryRun, committed: false, manifestHash: 'h',
+    counts: {created: req.params.elements.length, updated: 0, skipped: 0, failed: 0},
+    warnings: [{message: 'w'}], errors: [], items: req.params.elements.map((e) => ({sourceKey: e.sourceKey, action: 'created'})),
+  }}));
+  const dir = mkdtempSync(join(tmpdir(), 'rpc-'));
+  const paramsFile = join(dir, 'p.json');
+  const outFile = join(dir, 'o.json');
+  const elements = Array.from({length: 30}, (_, i) => ({sourceKey: `K/${i}`, pad: 'x'.repeat(40)}));
+  writeFileSync(paramsFile, JSON.stringify({dryRun: true, mode: 'upsert', elements}));
+  const lines = [];
+  try {
+    const code = await main(['build_elements', paramsFile, '--allow-write', '--chunk-bytes', '900', '--out', outFile, '--port', String(port), '--host', '127.0.0.1'],
+      {stdout: (s) => lines.push(s), stderr: (s) => lines.push(s)});
+    assert.equal(code, 0, lines.join());
+    assert.ok(received.length > 1);
+    assert.equal(received.reduce((n, r) => n + r.req.params.elements.length, 0), 30);
+    assert.ok(received.every((r) => r.req.params.dryRun === true));
+    const out = JSON.parse(readFileSync(outFile, 'utf8'));
+    assert.equal(out.counts.created, 30);
+    assert.equal(out.items.length, 30);
+    assert.equal(out.warnings.length, received.length);
+    assert.equal(out.chunks.length, received.length);
+    const summary = JSON.parse(lines[0]);
+    assert.equal(summary.counts.created, 30);
+    assert.equal(summary.chunks, received.length);
+  } finally { server.close(); }
+});
+
+test('runChunked stops at the first failed chunk', async () => {
+  let calls = 0;
+  const send = async ({params}) => {
+    calls++;
+    if (calls === 2) return {ok: false, counts: {failed: 1}, errors: [{message: 'bad'}]};
+    return {ok: true, counts: {created: params.elements.length}, errors: []};
+  };
+  const elements = Array.from({length: 20}, (_, i) => ({sourceKey: `K/${i}`, pad: 'x'.repeat(40)}));
+  const r = await runChunked({params: {dryRun: true, elements}, maxBytes: 400, send});
+  assert.equal(calls, 2);
+  assert.equal(r.ok, false);
+  assert.equal(r.stoppedAtChunk, 2);
+  assert.equal(r.errors[0].message, 'bad');
+  const thrown = await runChunked({params: {dryRun: true, elements}, maxBytes: 400, send: async () => { throw new Error('socket down'); }});
+  assert.equal(thrown.ok, false);
+  assert.match(thrown.errors[0].message, /socket down/);
+});
+
+test('parseArgs: --chunk-bytes only for build_elements; readback arguments', () => {
+  assert.equal(parseArgs(['build_elements', 'p.json', '--chunk-bytes', '7000']).chunkBytes, 7000);
+  assert.throws(() => parseArgs(['get_elements_info', 'p.json', '--chunk-bytes', '7000']), /only applies to build_elements/);
+  assert.throws(() => parseArgs(['build_elements', 'p.json', '--chunk-bytes', '-1']), /invalid --chunk-bytes/);
+  const r = parseArgs(['readback', 'A/', 'B/', '--out', 'dir']);
+  assert.deepEqual([r.command, r.prefixes, r.out], ['readback', ['A/', 'B/'], 'dir']);
+  assert.throws(() => parseArgs(['readback', '--out', 'dir']), /at least one/);
+  assert.throws(() => parseArgs(['readback', 'A/']), /needs --out/);
+});
+
+test('main readback: pages find_by_source_key, batches get_elements_info, writes sources.json and readback.json', async () => {
+  const all = Array.from({length: 7}, (_, i) => ({id: 100 + i, sourceKey: `P/${i}`}));
+  const {server, received, port} = await mockServer((req) => {
+    const p = req.params;
+    if (req.method === 'find_by_source_key') {
+      const rows = all.filter((m) => m.sourceKey.startsWith('P/'));
+      const page = rows.slice(p.offset, p.offset + p.limit);
+      const hasMore = p.offset + page.length < rows.length;
+      return {result: {total: rows.length, offset: p.offset, hasMore, nextOffset: hasMore ? p.offset + page.length : null, matches: page, notFound: [], duplicates: p.offset === 0 ? [{sourceKey: 'P/0', ids: [100, 999]}] : []}};
+    }
+    return {result: {count: p.ids.length, items: p.ids.map((id) => ({id})), notFound: p.ids.includes(106) ? [106] : []}};
+  });
+  const dir = join(mkdtempSync(join(tmpdir(), 'rpc-')), 'rb');
+  const lines = [];
+  try {
+    const code = await main(['readback', 'P/', '--out', dir, '--page-size', '3', '--batch', '4', '--port', String(port), '--host', '127.0.0.1'],
+      {stdout: (s) => lines.push(s), stderr: (s) => lines.push(s)});
+    assert.equal(code, 0, lines.join());
+    const finds = received.filter((r) => r.req.method === 'find_by_source_key');
+    const infos = received.filter((r) => r.req.method === 'get_elements_info');
+    assert.deepEqual(finds.map((r) => r.req.params.offset), [0, 3, 6]);
+    assert.deepEqual(infos.map((r) => r.req.params.ids.length), [4, 3]);
+    const sources = JSON.parse(readFileSync(join(dir, 'sources.json'), 'utf8'));
+    assert.equal(sources.matches.length, 7);
+    assert.equal(sources.total, 7);
+    assert.equal(sources.duplicates.length, 1);
+    const rb = JSON.parse(readFileSync(join(dir, 'readback.json'), 'utf8'));
+    assert.equal(rb.items.length, 7);
+    assert.deepEqual(rb.notFound, [106]);
+    assert.deepEqual(JSON.parse(lines[0]), {command: 'readback', dir: resolve(dir), sourceKeys: 7, total: 7, duplicates: 1, info: 7, notFound: 1});
   } finally { server.close(); }
 });
