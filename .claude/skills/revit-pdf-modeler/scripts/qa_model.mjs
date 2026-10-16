@@ -16,7 +16,13 @@ import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {summarize} from './json_summary.mjs';
 
-const DEF = {xy: 2, z: 2, size: 2, rotation_deg: 0.5, support_xy: 10, support_z: 2, overlap_mm2: 1e4};
+const DEF = {xy: 2, z: 2, size: 2, rotation_deg: 0.5, support_xy: 10, support_z: 2, overlap_mm2: 1e4, area_rel: 0.005};
+// Revit display names accepted for architectural categories without per-project category_aliases.
+const BUILTIN_ALIASES = {
+  architectural_walls: ['Walls', 'Muros'],
+  floors: ['Floors', 'Suelos', 'Pisos'],
+  structural_floors: ['Floors', 'Structural Floors', 'Suelos', 'Pisos'],
+};
 const num = v => typeof v === 'number' && Number.isFinite(v);
 const r3 = v => (num(v) ? Math.round(v * 1000) / 1000 : v);
 const norm = s => String(s ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
@@ -30,6 +36,7 @@ export function kindOf(category) {
   if (c.includes('column') || c.includes('pilar')) return 'column';
   if (c.includes('framing') || c.includes('beam') || c.includes('viga')) return 'beam';
   if (c.includes('wall') || c.includes('muro')) return 'wall';
+  if (c.includes('floor') || c.includes('slab') || c.includes('losa') || c.includes('suelo')) return 'floor';
   return 'other';
 }
 
@@ -95,6 +102,7 @@ export function runQa(manifest, readback, sourceIndex) {
     sxy: tolsIn.support_xy ?? DEF.support_xy,
     sz: tolsIn.support_z ?? DEF.support_z,
     overlap: at.overlap_threshold_mm2 ?? DEF.overlap_mm2,
+    areaRel: tolsIn.area_rel ?? DEF.area_rel,
   };
   const aliases = at.category_aliases ?? {};
   const levels = new Map((manifest.levels ?? []).map(l => [l.name, l.elevation_mm]));
@@ -178,11 +186,13 @@ export function runQa(manifest, readback, sourceIndex) {
     const {row: e, item, kind} = p;
     const key = e.source_key;
     const t = types.get(e.type_key);
-    const okCat = norm(item.category) === norm(e.category) || (aliases[e.category] ?? []).some(a => same(a, item.category));
+    const okCat = norm(item.category) === norm(e.category) ||
+      [...(aliases[e.category] ?? []), ...(BUILTIN_ALIASES[e.category] ?? [])].some(a => same(a, item.category));
     add(key, 'category', okCat ? 'pass' : 'fail', e.category, item.category ?? null, null,
       okCat ? undefined : 'localized Revit category names need acceptance_tests.category_aliases');
     // 3. type / family / material
-    if (!t) add(key, 'type', 'fail', e.type_key ?? null, null, null, 'type_key not found in type_manifest');
+    if (!t && e.category === 'grids') { /* grids are typeless */ }
+    else if (!t) add(key, 'type', 'fail', e.type_key ?? null, null, null, 'type_key not found in type_manifest');
     else {
       if (t.family !== undefined) add(key, 'family', same(t.family, item.family) ? 'pass' : 'fail', t.family, item.family ?? null, null);
       if (t.type !== undefined) add(key, 'type', same(t.type, item.type) ? 'pass' : 'fail', t.type, item.type ?? null, null);
@@ -192,7 +202,27 @@ export function runQa(manifest, readback, sourceIndex) {
     const g = e.geometry_mm ?? {};
     const loc = item.location ?? {};
     let totalRot;
-    if (g.start && g.end) {
+    if (kind === 'floor' && Array.isArray(g.boundary)) {
+      // Floors: outer-loop bbox of the transformed boundary vs readback bbox (XY), area when the readback has it.
+      const loops = g.boundary.map(loop => loop.map(pt => applyTransform(tf, pt[0], pt[1])));
+      const outer = loops[0] ?? [];
+      const bx = outer.map(q => q[0]), by = outer.map(q => q[1]);
+      const eb = {min: [Math.min(...bx), Math.min(...by)], max: [Math.max(...bx), Math.max(...by)]};
+      const ib = item.bbox;
+      if (!ib?.min || !ib?.max) add(key, 'boundary_bbox', 'fail', `${fmtPt(eb.min)}..${fmtPt(eb.max)}`, null, null, 'readback bbox missing');
+      else {
+        const d = Math.max(Math.abs(ib.min[0] - eb.min[0]), Math.abs(ib.min[1] - eb.min[1]), Math.abs(ib.max[0] - eb.max[0]), Math.abs(ib.max[1] - eb.max[1]));
+        add(key, 'boundary_bbox', d <= tol.xy + 1e-9 ? 'pass' : 'fail', `${fmtPt(eb.min)}..${fmtPt(eb.max)}`,
+          `${fmtPt([ib.min[0], ib.min[1]])}..${fmtPt([ib.max[0], ib.max[1]])}`, r3(d), 'max corner delta, outer loop');
+      }
+      const readArea = pick(item, ['areaMm2', 'area_mm2']);
+      if (num(readArea)) {
+        const area = loop => Math.abs(loop.reduce((a, p, i) => { const q = loop[(i + 1) % loop.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0) / 2);
+        const expArea = loops.reduce((a, loop, i) => a + (i === 0 ? 1 : -1) * area(loop), 0);
+        const rel = expArea > 0 ? Math.abs(readArea - expArea) / expArea : Infinity;
+        add(key, 'area', rel <= tol.areaRel ? 'pass' : 'fail', r3(expArea), r3(readArea), r3(readArea - expArea), `relative tolerance ${tol.areaRel}`);
+      }
+    } else if (g.start && g.end) {
       const s = applyTransform(tf, g.start[0], g.start[1]), en = applyTransform(tf, g.end[0], g.end[1]);
       if (!loc.start || !loc.end) add(key, 'xy', 'fail', `${fmtPt(s)}..${fmtPt(en)}`, null, null, 'readback curve location missing');
       else {
@@ -235,11 +265,23 @@ export function runQa(manifest, readback, sourceIndex) {
         if (num(item.offsets?.baseOffset)) cmpNum(key, 'z_base_offset', bo, item.offsets.baseOffset, tol.z);
         if (item.offsets?.baseLevel) add(key, 'z_base_level', same(item.offsets.baseLevel, z.base_level ?? z.level) ? 'pass' : 'fail', z.base_level ?? z.level, item.offsets.baseLevel, null);
       } else add(key, 'z_base', 'skip', null, null, null, 'base level/offset missing');
+      const spans = (z.base_level ?? z.level) !== z.top_level && z.top_level !== undefined;
+      if (spans) {
+        // level-to-level column: the readback must carry the base AND top level and they must match the manifest
+        const rb = item.offsets?.baseLevel, rt = item.offsets?.topLevel;
+        if (!rb || !rt) add(key, 'level_span', 'warn', `${z.base_level ?? z.level} -> ${z.top_level}`, `${rb ?? '?'} -> ${rt ?? '?'}`, null, 'readback lacks offsets.baseLevel/topLevel; level span unverified');
+        else add(key, 'level_span', same(rb, z.base_level ?? z.level) && same(rt, z.top_level) ? 'pass' : 'fail', `${z.base_level ?? z.level} -> ${z.top_level}`, `${rb} -> ${rt}`, null);
+      }
       if (tl !== undefined && num(to)) {
         cmpNum(key, 'z_top', tl + to, bb?.max?.[2], tol.z);
         if (num(item.offsets?.topOffset)) cmpNum(key, 'z_top_offset', to, item.offsets.topOffset, tol.z);
         if (item.offsets?.topLevel) add(key, 'z_top_level', same(item.offsets.topLevel, z.top_level) ? 'pass' : 'fail', z.top_level, item.offsets.topLevel, null);
       }
+    } else if (kind === 'floor') {
+      // Revit floor "height offset from level" is the TOP of the slab: top = level + offset_mm.
+      const l = lvl(z.level);
+      if (l === undefined || !num(z.offset_mm)) add(key, 'z_top', 'skip', null, null, null, 'floor z_constraints {level, offset_mm} unusable');
+      else cmpNum(key, 'z_top', l + z.offset_mm, bb?.max?.[2] ?? item.topElevation, tol.z, 'floor top = level + offset');
     } else if (kind === 'beam') {
       const l = lvl(z.level);
       const so = z.start_offset_mm ?? z.offset_mm, eo = z.end_offset_mm ?? z.offset_mm;
@@ -285,7 +327,9 @@ export function runQa(manifest, readback, sourceIndex) {
   }
 
   // datum table rows {name, value_mm, level_ref, category?, source_keys?, status}
-  for (const d of manifest.datum_table ?? []) {
+  // datum_table is an object {npt_mm, ..., rows:[...]} (schema); a bare array of rows is still accepted.
+  const datumRows = Array.isArray(manifest.datum_table) ? manifest.datum_table : (Array.isArray(manifest.datum_table?.rows) ? manifest.datum_table.rows : []);
+  for (const d of datumRows) {
     if ((d.status && d.status !== 'resolved') || (!d.category && !d.source_keys)) continue;
     if (!/top/i.test(d.name ?? '') || !num(d.value_mm)) continue;
     const base = d.level_ref === 'absolute' ? 0 : lvl(d.level_ref);
@@ -306,6 +350,10 @@ export function runQa(manifest, readback, sourceIndex) {
     const pt = p.item.location?.point ?? (b ? [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2] : null);
     if (!pt || !b) { add(key, 'support', 'fail', 'footing', null, null, 'no location/bbox'); continue; }
     const hs = p.row.host_supports ?? [];
+    if (!hs.length && Array.isArray(manifest.scope?.categories) && !manifest.scope.categories.includes('structural_foundations')) {
+      add(key, 'support', 'skip', null, null, null, 'no structural_foundations in scope and no host_supports: footing support check not applicable');
+      continue;
+    }
     const cands = hs.length ? present.filter(x => hs.includes(x.row.source_key) && bboxOk(x)) : footings;
     const hit = cands.filter(f => inXY(pt, f.item.bbox, tol.sxy));
     if (!hit.length) { add(key, 'support', 'fail', hs.length ? hs.join('|') : 'any footing', fmtPt([pt[0], pt[1]]), null, 'column XY outside support bbox'); continue; }

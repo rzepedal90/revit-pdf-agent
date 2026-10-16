@@ -1,0 +1,553 @@
+{
+  "schema_version": "1.0",
+  "mode": "EXECUTE",
+  "manifest_frozen": true,
+  "target": {
+    "rvt_path": "C:/BIM/Example/MODELING TEST STR.rvt",
+    "rvt_title": "SYNTHETIC ARQ",
+    "revit_version": "2027",
+    "mcp_version": "0.8.31",
+    "active_view": "Nivel 1",
+    "unit_system": "METRIC",
+    "phase": null,
+    "workset": null,
+    "design_option": null
+  },
+  "sources": [
+    {
+      "source_id": "ARQ-01-r0",
+      "role": "primary",
+      "path": "C:/BIM/Example/PDFsam_1725-S401_PL FUNDACIONES.pdf",
+      "sha256": "41BAED6247ED7226811E1BBDA3E6F868A1529B381314B3525845EDF6E22AC965",
+      "sheet": "ARQ-01",
+      "revision": "0",
+      "units": "mm",
+      "registered_in_revit": true,
+      "positional_authority": true,
+      "human_aligned": true,
+      "human_scaled": true,
+      "pinned_expected": true,
+      "immutable": true,
+      "drawing_regions": [
+        {
+          "name": "foundation plan",
+          "scale": "1:125"
+        },
+        {
+          "name": "foundation and beam details",
+          "scale": "1:25"
+        }
+      ]
+    },
+    {
+      "source_id": "ARQ-01-dwg",
+      "role": "aligned_cad",
+      "path": "C:/BIM/Example/ARQ-01.dwg",
+      "sha256": "AA",
+      "sheet": "ARQ-01",
+      "revision": "0",
+      "units": "mm",
+      "registered_in_revit": true,
+      "positional_authority": true,
+      "human_aligned": true,
+      "human_scaled": true,
+      "pinned_expected": true,
+      "immutable": true,
+      "drawing_regions": [
+        {
+          "name": "plan",
+          "scale": "1:1"
+        }
+      ],
+      "cad": {
+        "scale": 1,
+        "anchor_checks": [
+          {
+            "grid": "A",
+            "deviation_mm": 0.2
+          },
+          {
+            "grid": "1",
+            "deviation_mm": 0.4
+          }
+        ],
+        "layer_map": {
+          "0-PILARES": "structural_columns",
+          "000-EJES": "grids",
+          "MUROS-ROJO": "architectural_walls"
+        }
+      }
+    }
+  ],
+  "scope": {
+    "categories": [
+      "grids",
+      "structural_columns",
+      "architectural_walls",
+      "floors",
+      "levels"
+    ],
+    "rebar": false,
+    "excluded_categories": [
+      "reinforcement"
+    ]
+  },
+  "documentation": {
+    "dimensions": {
+      "enabled": false
+    }
+  },
+  "coordinate_basis": {
+    "origin": "s8a x E",
+    "positive_x": "toward s16",
+    "positive_y": "toward E from A",
+    "coordinate_policy": "project coordinates relative to human anchors",
+    "anchors": [
+      {
+        "name": "s8a",
+        "element_id": 182458,
+        "unique_id": "23e70676-b6d8-40f3-bc38-7a553dd4bc9f-0002c8ba"
+      },
+      {
+        "name": "E",
+        "element_id": 271655,
+        "unique_id": "3f49e4f4-657c-49b9-9c8c-cd192ace9aba-00042527"
+      }
+    ],
+    "registration_checks": [],
+    "transform_to_model": {
+      "originMm": {
+        "x": 1000,
+        "y": 2000
+      },
+      "rotationDeg": 0
+    },
+    "insets": [
+      {
+        "name": "Nivel 2 inset",
+        "transform_to_model": {
+          "originMm": {
+            "x": -50000,
+            "y": 3000
+          },
+          "rotationDeg": 0
+        },
+        "matched_grid_intersections": [
+          {
+            "grid_x": "1",
+            "grid_y": "A",
+            "inset_mm": [
+              50000,
+              -3000
+            ],
+            "model_mm": [
+              0,
+              0
+            ]
+          },
+          {
+            "grid_x": "2",
+            "grid_y": "B",
+            "inset_mm": [
+              60000,
+              5000
+            ],
+            "model_mm": [
+              10000,
+              8000
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "levels": [
+    {
+      "name": "Nivel -2",
+      "elevation_mm": -8000,
+      "npt_mm": 50000,
+      "action": "create"
+    },
+    {
+      "name": "Nivel -1",
+      "elevation_mm": -4500,
+      "npt_mm": 53500,
+      "action": "create"
+    },
+    {
+      "name": "Nivel 1",
+      "elevation_mm": 0,
+      "npt_mm": 58000,
+      "action": "existing"
+    },
+    {
+      "name": "Nivel 2",
+      "elevation_mm": 5500,
+      "npt_mm": 63500,
+      "action": "create"
+    }
+  ],
+  "type_manifest": [
+    {
+      "source_key": "ARQ-01/T/C500",
+      "status": "resolved",
+      "category": "structural_columns",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "action": "reuse",
+      "family": "Pilar Rect",
+      "type": "P 500x500",
+      "dimensions_mm": {
+        "width": 500,
+        "depth": 500
+      },
+      "material": "H-30"
+    },
+    {
+      "source_key": "ARQ-01/T/W200",
+      "status": "resolved",
+      "category": "architectural_walls",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "action": "reuse",
+      "family": "Basic Wall",
+      "type": "Generico - 200",
+      "dimensions_mm": {
+        "thickness": 200
+      },
+      "material": "Concreto"
+    },
+    {
+      "source_key": "ARQ-01/T/FL150",
+      "status": "resolved",
+      "category": "floors",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "action": "reuse",
+      "family": "Floor",
+      "type": "Generico 150",
+      "dimensions_mm": {
+        "thickness": 150
+      },
+      "material": "Concreto"
+    }
+  ],
+  "element_manifest": [
+    {
+      "source_key": "ARQ-01/grid/A",
+      "status": "resolved",
+      "category": "grids",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "name": "A",
+      "geometry_mm": {
+        "start": [
+          0,
+          0
+        ],
+        "end": [
+          20000,
+          0
+        ]
+      },
+      "execution_action": "create"
+    },
+    {
+      "source_key": "ARQ-01/grid/B",
+      "status": "resolved",
+      "category": "grids",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "name": "B",
+      "geometry_mm": {
+        "start": [
+          0,
+          8000
+        ],
+        "end": [
+          20000,
+          8000
+        ]
+      },
+      "execution_action": "create"
+    },
+    {
+      "source_key": "ARQ-01/grid/1",
+      "status": "resolved",
+      "category": "grids",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "name": "1",
+      "geometry_mm": {
+        "start": [
+          0,
+          0
+        ],
+        "end": [
+          0,
+          8000
+        ]
+      },
+      "execution_action": "create"
+    },
+    {
+      "source_key": "ARQ-01/grid/2",
+      "status": "resolved",
+      "category": "grids",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "name": "2",
+      "geometry_mm": {
+        "start": [
+          10000,
+          0
+        ],
+        "end": [
+          10000,
+          8000
+        ]
+      },
+      "execution_action": "create"
+    },
+    {
+      "source_key": "ARQ-01/C/001",
+      "status": "resolved",
+      "category": "structural_columns",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "ARQ-01/T/C500",
+      "geometry_mm": {
+        "x": 0,
+        "y": 0,
+        "rotation_deg": 0
+      },
+      "z_constraints": {
+        "base_level": "Nivel 1",
+        "base_offset_mm": 0,
+        "top_level": "Nivel 2",
+        "top_offset_mm": 0
+      },
+      "execution_action": "create",
+      "snap": {
+        "grid_x": "1",
+        "grid_y": "A",
+        "intersection_mm": [
+          0,
+          0
+        ],
+        "cad_mm": [
+          12,
+          -8
+        ],
+        "deviation_mm": 14.4
+      }
+    },
+    {
+      "source_key": "ARQ-01/C/002",
+      "status": "resolved",
+      "category": "structural_columns",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "ARQ-01/T/C500",
+      "geometry_mm": {
+        "x": 10000,
+        "y": 8000,
+        "rotation_deg": 0
+      },
+      "z_constraints": {
+        "base_level": "Nivel -1",
+        "base_offset_mm": 0,
+        "top_level": "Nivel 1",
+        "top_offset_mm": 0
+      },
+      "execution_action": "create",
+      "snap": {
+        "grid_x": "2",
+        "grid_y": "B",
+        "intersection_mm": [
+          10000,
+          8000
+        ],
+        "cad_mm": [
+          10003,
+          8004
+        ],
+        "deviation_mm": 5
+      }
+    },
+    {
+      "source_key": "ARQ-01/W/001",
+      "status": "resolved",
+      "category": "architectural_walls",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "ARQ-01/T/W200",
+      "structural": false,
+      "geometry_mm": {
+        "start": [
+          0,
+          0
+        ],
+        "end": [
+          20000,
+          0
+        ]
+      },
+      "z_constraints": {
+        "base_level": "Nivel 1",
+        "base_offset_mm": 0,
+        "top_level": "Nivel 2",
+        "top_offset_mm": 0
+      },
+      "execution_action": "create"
+    },
+    {
+      "source_key": "ARQ-01/L/001",
+      "status": "resolved",
+      "category": "floors",
+      "evidence": [
+        {
+          "sheet": "ARQ-01",
+          "detail": "synthetic"
+        }
+      ],
+      "type_key": "ARQ-01/T/FL150",
+      "geometry_mm": {
+        "boundary": [
+          [
+            [
+              0,
+              0
+            ],
+            [
+              20000,
+              0
+            ],
+            [
+              20000,
+              8000
+            ],
+            [
+              0,
+              8000
+            ]
+          ],
+          [
+            [
+              5000,
+              2000
+            ],
+            [
+              7000,
+              2000
+            ],
+            [
+              7000,
+              4000
+            ],
+            [
+              5000,
+              4000
+            ]
+          ]
+        ]
+      },
+      "z_constraints": {
+        "level": "Nivel 1",
+        "offset_mm": 0
+      },
+      "execution_action": "create"
+    }
+  ],
+  "clarifications": [],
+  "execution_policy": {
+    "commit_authorized": true,
+    "expected_revit_changes": 10,
+    "primary_pdf_immutable": true,
+    "anchor_grids_immutable": true,
+    "allow_delete_existing": false,
+    "allow_modify_existing_types": false
+  },
+  "acceptance_tests": {
+    "expected_counts": {
+      "grids": 4,
+      "structural_columns": 2,
+      "architectural_walls": 1,
+      "floors": 1
+    },
+    "snap_tolerance_mm": 50,
+    "category_aliases": {
+      "structural_columns": [
+        "Structural Columns"
+      ]
+    },
+    "blocked_source_keys": [],
+    "excluded_source_keys": [],
+    "key_prefix": "ARQ-01/"
+  },
+  "datum_table": {
+    "rules": {
+      "column": {
+        "top": "top level + 0 (level-to-level)",
+        "bottom": "base level + 0"
+      },
+      "wall": {
+        "top": "Nivel 2",
+        "bottom": "Nivel 1"
+      },
+      "floor": {
+        "top": "level + offset_mm = top of slab",
+        "bottom": "top - thickness"
+      }
+    },
+    "rows": [
+      {
+        "name": "N.P.T. Nivel 1",
+        "value_mm": 58000,
+        "level_ref": "absolute-npt",
+        "evidence": "ARQ-01",
+        "status": "resolved"
+      }
+    ]
+  }
+}

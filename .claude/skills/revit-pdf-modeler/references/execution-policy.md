@@ -18,9 +18,10 @@ All tools below exist in this repository's MCP server. Still list the live tools
 | Read elements / parameters | `get_elements_info` (batched), `get_current_view_elements`, `ai_element_filter`, `get_selected_elements` | read-only C# |
 | Filtered queries | `find_elements`, `query_where` | `ai_element_filter` + C# |
 | Loaded family types | `get_available_family_types` | - |
-| **Bulk creation from a frozen manifest** (grids, footings, columns, beams, walls; dry-run, upsert by source key) | **`build_elements`** via `scripts/compile_build_payload.mjs` + `scripts/revit_rpc.mjs` | `create_grid`, `create_point_based_element`, `create_line_based_element` one element at a time |
-| Levels | `create_level` | - |
-| Slabs (surface) | `create_surface_based_element` | blocked until thickness/boundary confirmed |
+| **Bulk creation from a frozen manifest** (grids, footings, columns, beams, walls incl. architectural `structural:false`, floors; dry-run, upsert by source key) | **`build_elements`** via `scripts/compile_build_payload.mjs` + `scripts/revit_rpc.mjs` | `create_grid`, `create_point_based_element`, `create_line_based_element` one element at a time |
+| Aligned CAD geometry (layers, per-layer segments/polylines in model mm) | `get_cad_geometry` (`layers` / `geometry`, layer filter, `outFile`) | read-only `send_code_to_revit` over the ImportInstance geometry; else blocked |
+| Levels (only when `levels` is in scope and the level has `action: "create"`) | `create_level` with the `data` of `levels_to_create.json` (not part of `build_elements`) | - |
+| Floors / slabs | `build_elements` kind `floor` (`level`, `offsetMm`, `boundary` loops, `structural`) | `create_surface_based_element`; blocked until thickness/boundary confirmed |
 | Source key tagging / lookup | `set_source_key`, `find_by_source_key` | external key-to-UniqueId map + exact geometry/type match |
 | Set parameters (offsets, tops, materials) | `set_parameter`, `set_parameter_batch` (verified writes) | `operate_element` where it applies; else C# |
 | Duplicate a type | `duplicate_family_type` | C# `FamilySymbol.Duplicate(name)` then set parameters |
@@ -35,7 +36,9 @@ Never mutate with unreviewed C#. Show the snippet in the plan, run it on one ele
 Payloads and readbacks stay on disk and never pass through the model context; only bounded summaries (counts, warnings, first errors) are printed. Paths are relative to `.claude/skills/revit-pdf-modeler/scripts/`.
 
 1. Validate: `node validate_manifest.mjs manifest.json` (must print `VALID`; mode EXECUTE, `manifest_frozen` true).
-2. Compile: `node compile_build_payload.mjs manifest.json --out-dir out/payloads`. Produces one `build_payload_NNN_<stage>.json` per stage chunk (grids, footings, columns, beams, walls; at most 500 elements each, ordered by source key), `compile_summary.json` and the canonical `manifestHash`. Blocked/excluded rows are skipped and listed.
+2. Compile: `node compile_build_payload.mjs manifest.json --out-dir out/payloads`. Produces one `build_payload_NNN_<stage>.json` per stage chunk (grids, footings, columns, beams, walls, floors; at most 500 elements each, ordered by source key), `compile_summary.json` and the canonical `manifestHash`. Blocked/excluded rows are skipped and listed. When levels have `action: "create"` it also writes `levels_to_create.json` (`{tool: "create_level", data: [{name, elevation}]}`, ascending elevation): create those levels first (the human authorized them by putting `levels` in scope), read them back, and only then run the element stages that reference them. Existing levels are never touched.
+
+   **CAD-aligned runs**: coordinates already come from the aligned CAD and the snapped grid intersections (frozen in the manifest); do not re-read the CAD during EXECUTE, and do not move the DWG ImportInstance.
 3. Types first: resolve every `familyName`/`typeName` against `get_available_family_types`; create missing ones with `duplicate_family_type` (see Type generation). Never proceed with a missing type.
 4. Dry run each payload in order: `node revit_rpc.mjs build_elements out/payloads/build_payload_001_grid.json --allow-write --out out/dry_001.json`. The client refuses a payload that is not `dryRun:true`.
 5. Review warnings/errors from the printed summary (`node json_summary.mjs out/dry_001.json warnings 10` for detail). Stop on any error or unexpected warning; fix the manifest, not the payload.
@@ -46,7 +49,7 @@ Reruns are safe: `mode: "upsert"` updates or skips matched source keys.
 
 ## Immutable content
 
-Never move, rotate, scale, unpin, replace, permanently hide or delete the primary PDF. Never move/rename/delete human anchors or levels. Never delete existing model elements or modify existing family types unless the user gives separate explicit authorization. Rebar and reinforcement creation are prohibited.
+Never move, rotate, scale, unpin, replace, permanently hide or delete the primary PDF or an `aligned_cad` DWG ImportInstance. Never move/rename/delete human anchors or levels (the agent may only add levels that the manifest marks `create`). Never delete existing model elements or modify existing family types unless the user gives separate explicit authorization. Rebar and reinforcement creation are prohibited.
 
 ## Type generation
 

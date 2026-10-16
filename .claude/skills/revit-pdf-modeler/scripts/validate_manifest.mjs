@@ -14,7 +14,9 @@ const STATES = new Set(['resolved', 'blocked', 'excluded']);
 const ALLOWED_CATEGORIES = new Set([
   'grids', 'structural_columns', 'structural_framing', 'structural_foundations',
   'structural_walls', 'structural_floors', 'openings',
+  'architectural_walls', 'floors', 'levels',
 ]);
+const LEVEL_ACTIONS = new Set(['existing', 'create']);
 const REQUIRED_TOP_LEVEL = [
   'schema_version', 'mode', 'manifest_frozen', 'target', 'sources',
   'scope', 'documentation', 'coordinate_basis', 'levels', 'type_manifest',
@@ -81,9 +83,10 @@ export function validateManifest(data) {
     if (!nonBlankString(sourceId)) errors.push(`${label}.source_id is required`);
     else if (sourceIds.has(sourceId)) errors.push(`duplicate source_id: ${sourceId}`);
     else sourceIds.add(sourceId);
-    if (source.role !== 'primary' && source.role !== 'supplementary') {
-      errors.push(`${label}.role must be 'primary' or 'supplementary'`);
+    if (!['primary', 'supplementary', 'aligned_cad'].includes(source.role)) {
+      errors.push(`${label}.role must be 'primary', 'supplementary' or 'aligned_cad'`);
     }
+    if (source.role === 'aligned_cad') validateAlignedCad(source, label, errors);
     if (source.role === 'supplementary' && source.registered_in_revit !== true &&
         source.positional_authority !== false) {
       errors.push(`${label} is not registered in Revit and cannot have positional authority`);
@@ -98,6 +101,8 @@ export function validateManifest(data) {
     errors.push('primary source must be registered in Revit and have positional authority');
   }
 
+  validateLevels(data.levels, categories0(data), errors);
+  validateInsets(get(data.coordinate_basis, 'insets'), errors);
   const flowCategories = validateFlowManifest(data.flow_manifest, errors);
   const allowedCategories = new Set([...ALLOWED_CATEGORIES, ...flowCategories]);
 
@@ -242,10 +247,95 @@ export function validateManifest(data) {
 // ---- Build-ready conventions (PLAN/EXECUTE); see references/manifest-schema.md ----------------------------------
 export const KIND_BY_CATEGORY = {
   grids: 'grid', structural_foundations: 'footing', structural_columns: 'column',
-  structural_framing: 'beam', structural_walls: 'wall',
+  structural_framing: 'beam', structural_walls: 'wall', architectural_walls: 'wall',
+  floors: 'floor', structural_floors: 'floor',
 };
+const categories0 = (data) => (isObj(data.scope) && Array.isArray(data.scope.categories) ? data.scope.categories : []);
+
+/** aligned_cad source: pinned DWG ImportInstance, scale 1.0, grid-aligned (see references/input-contract.md). */
+function validateAlignedCad(source, label, errors) {
+  if (source.registered_in_revit !== true || source.positional_authority !== true) {
+    errors.push(`${label} (aligned_cad) must be registered in Revit and have positional authority`);
+  }
+  if (!['human_aligned', 'human_scaled', 'pinned_expected', 'immutable'].every((f) => source[f] === true)) {
+    errors.push(`${label} (aligned_cad) must be human-aligned, human-scaled, pinned and immutable`);
+  }
+  const cad = source.cad;
+  if (!isObj(cad)) { errors.push(`${label}.cad must be an object {scale, anchor_checks, layer_map}`); return; }
+  if (cad.scale !== 1) errors.push(`${label}.cad.scale must be 1 (import scale verified)`);
+  if (!Array.isArray(cad.anchor_checks) || cad.anchor_checks.length === 0) {
+    errors.push(`${label}.cad.anchor_checks must list one {grid, deviation_mm} per anchor grid`);
+  } else {
+    cad.anchor_checks.forEach((c, i) => {
+      if (!isObj(c) || !nonBlankString(c.grid) || typeof c.deviation_mm !== 'number' || !Number.isFinite(c.deviation_mm)) {
+        errors.push(`${label}.cad.anchor_checks[${i}] must be {grid, deviation_mm number}`);
+      } else if (Math.abs(c.deviation_mm) > 1) {
+        errors.push(`${label}.cad.anchor_checks[${i}] (${c.grid}) deviates ${c.deviation_mm} mm from the CAD grid line (max 1 mm): CAD is not aligned`);
+      }
+    });
+  }
+  if (!isObj(cad.layer_map) || Object.keys(cad.layer_map).length === 0) {
+    errors.push(`${label}.cad.layer_map must map CAD layer -> element class (human-confirmed)`);
+  }
+}
+
+/** Optional coordinate_basis.insets: separate basis for inset plans (e.g. Level 2 drawn elsewhere on the sheet). */
+function validateInsets(insets, errors) {
+  if (insets === undefined) return;
+  if (!Array.isArray(insets)) { errors.push('coordinate_basis.insets must be a list'); return; }
+  insets.forEach((inset, i) => {
+    const label = `coordinate_basis.insets[${i}]`;
+    if (!isObj(inset) || !nonBlankString(inset.name)) { errors.push(`${label}.name is required`); return; }
+    const m = inset.matched_grid_intersections;
+    if (!Array.isArray(m) || m.length < 2) errors.push(`${label}.matched_grid_intersections needs at least 2 matches`);
+    else m.forEach((p, j) => {
+      if (!isObj(p) || !nonBlankString(p.grid_x) || !nonBlankString(p.grid_y) || !isXY(p.inset_mm) || !isXY(p.model_mm)) {
+        errors.push(`${label}.matched_grid_intersections[${j}] must be {grid_x, grid_y, inset_mm:[x,y], model_mm:[x,y]}`);
+      }
+    });
+    const t = inset.transform_to_model;
+    if (!isObj(t) || !isObj(t.originMm) || !isInt(t.originMm.x) || !isInt(t.originMm.y) || typeof t.rotationDeg !== 'number') {
+      errors.push(`${label}.transform_to_model must be {originMm:{x,y integers}, rotationDeg number}`);
+    }
+  });
+}
+
+/** levels: [{name, elevation_mm, action?, npt_mm?}]. action existing|create is required when 'levels' is in scope. */
+function validateLevels(levels, categories, errors) {
+  const inScope = categories.includes('levels');
+  if (!Array.isArray(levels)) return; // missing/non-list already reported as a top-level field problem
+  const names = new Set();
+  levels.forEach((l, i) => {
+    const label = `levels[${i}]`;
+    if (!isObj(l)) { errors.push(`${label} must be an object`); return; }
+    if (nonBlankString(l.name)) {
+      if (names.has(l.name)) errors.push(`duplicate level name: ${l.name}`);
+      names.add(l.name);
+    } else if (inScope || has(l, 'action')) errors.push(`${label}.name is required`);
+    if ((inScope || has(l, 'action')) && !isInt(l.elevation_mm)) errors.push(`${label}.elevation_mm must be an integer (mm)`);
+    if (inScope && !has(l, 'action')) errors.push(`${label}.action ('existing'|'create') is required when 'levels' is in scope`);
+    if (has(l, 'action')) {
+      if (!LEVEL_ACTIONS.has(l.action)) errors.push(`${label}.action must be 'existing' or 'create'`);
+      else if (l.action === 'create' && !inScope) {
+        errors.push(`${label}.action 'create' requires 'levels' in scope.categories (the human must authorize level creation)`);
+      }
+    }
+    if (has(l, 'npt_mm') && !isInt(l.npt_mm)) errors.push(`${label}.npt_mm must be an integer (mm, absolute N.P.T.)`);
+  });
+}
 const Z_JUSTIFICATIONS = new Set(['top', 'center', 'bottom']);
-export const DATUM_RULE_KINDS = ['footing', 'column', 'beam', 'wall'];
+export const DATUM_RULE_KINDS = ['footing', 'column', 'beam', 'wall', 'floor'];
+const KINDS_BY_CATEGORY_FOR_RULES = {
+  structural_foundations: ['footing'], structural_columns: ['column'], structural_framing: ['beam'],
+  structural_walls: ['wall'], architectural_walls: ['wall'], floors: ['floor'], structural_floors: ['floor'],
+};
+/** Rule kinds required by the scope. Without scope information (legacy callers) the original four are required. */
+export function requiredRuleKinds(categories) {
+  if (!Array.isArray(categories)) return ['footing', 'column', 'beam', 'wall'];
+  const kinds = new Set();
+  for (const c of categories) for (const k of KINDS_BY_CATEGORY_FOR_RULES[c] ?? []) kinds.add(k);
+  return DATUM_RULE_KINDS.filter((k) => kinds.has(k));
+}
 const isInt = Number.isInteger;
 const isXY = (v) => Array.isArray(v) && v.length === 2 && v.every(isInt);
 
@@ -254,20 +344,29 @@ export function manifestWarnings(data) {
   const warnings = [];
   if (isObj(data) && data.mode === 'ANALYZE') {
     const probe = [];
-    validateDatumTable(data.datum_table, probe);
+    validateDatumTable(data.datum_table, probe, data);
     for (const message of probe) warnings.push(`datum_table (required before PLAN/EXECUTE): ${message}`);
   }
   return warnings;
 }
 
-export function validateDatumTable(table, errors) {
+/**
+ * `data` (the manifest) makes the table scope-aware: sf_mm only when structural_foundations is in scope; npt_mm may be
+ * omitted when every manifest level carries its own integer npt_mm (architectural datums per level); rule kinds are
+ * required only for the categories in scope. Without `data` the original strict behaviour applies.
+ */
+export function validateDatumTable(table, errors, data) {
   if (!isObj(table)) {
-    errors.push('datum_table must be an object {npt_mm, sf_mm, rules:{footing|column|beam|wall:{top,bottom}}}');
+    errors.push('datum_table must be an object {npt_mm, sf_mm, rules:{footing|column|beam|wall|floor:{top,bottom}}}');
     return;
   }
-  for (const key of ['npt_mm', 'sf_mm']) {
-    if (!isInt(table[key])) errors.push(`datum_table.${key} must be an integer (mm)`);
-  }
+  const categories = data === undefined ? undefined : categories0(data);
+  const levels = isObj(data) && Array.isArray(data.levels) ? data.levels : [];
+  const levelNpt = levels.length > 0 && levels.every((l) => isObj(l) && isInt(l.npt_mm));
+  const needSf = categories === undefined || categories.includes('structural_foundations');
+  if (!(levelNpt && !has(table, 'npt_mm')) && !isInt(table.npt_mm)) errors.push('datum_table.npt_mm must be an integer (mm)');
+  if (needSf && !isInt(table.sf_mm)) errors.push('datum_table.sf_mm must be an integer (mm)');
+  if (!needSf && has(table, 'sf_mm') && !isInt(table.sf_mm)) errors.push('datum_table.sf_mm must be an integer (mm)');
   for (const key of ['og_mm', 'top_of_footing_mm']) {
     if (has(table, key) && !isInt(table[key])) errors.push(`datum_table.${key} must be an integer (mm)`);
   }
@@ -276,7 +375,7 @@ export function validateDatumTable(table, errors) {
     errors.push('datum_table.rules must be an object with per-category top/bottom rules');
     return;
   }
-  for (const kind of DATUM_RULE_KINDS) {
+  for (const kind of requiredRuleKinds(categories)) {
     const rule = rules[kind];
     if (!isObj(rule) || !nonBlankString(rule.top) || !nonBlankString(rule.bottom)) {
       errors.push(`datum_table.rules.${kind} must have non-blank 'top' and 'bottom' (text rule or datum reference)`);
@@ -284,8 +383,59 @@ export function validateDatumTable(table, errors) {
   }
 }
 
+const shoelace = (loop) => Math.abs(loop.reduce((a, p, i) => {
+  const q = loop[(i + 1) % loop.length];
+  return a + p[0] * q[1] - q[0] * p[1];
+}, 0) / 2);
+
+/** Floor boundary: list of loops (outer first, holes after), each >= 3 integer [x,y] points, not closed by repetition. */
+function validateBoundary(boundary, label, errors) {
+  if (!Array.isArray(boundary) || boundary.length === 0) {
+    errors.push(`${label} must be a non-empty list of loops [[[x,y],...], ...] (outer loop first, holes after)`);
+    return;
+  }
+  boundary.forEach((loop, li) => {
+    const l = `${label}[${li}]`;
+    if (!Array.isArray(loop) || loop.length < 3 || !loop.every(isXY)) {
+      errors.push(`${l} must have at least 3 [x,y] integer mm points`);
+      return;
+    }
+    if (loop.some((p, i) => p[0] === loop[(i + 1) % loop.length][0] && p[1] === loop[(i + 1) % loop.length][1])) {
+      errors.push(`${l} has consecutive duplicate points (do not repeat the first point at the end)`);
+    } else if (shoelace(loop) === 0) errors.push(`${l} has zero area`);
+  });
+}
+
+/**
+ * Snap evidence (row.snap) for elements the human asked to snap to grid intersections:
+ * {grid_x, grid_y, intersection_mm:[x,y], cad_mm:[x,y], deviation_mm, tolerance_mm?}. The element XY must equal the
+ * exact intersection; the CAD deviation is recorded and must not exceed the tolerance (default
+ * acceptance_tests.snap_tolerance_mm, else 50 mm): beyond it the CAD match is wrong.
+ */
+function validateSnap(row, g, label, data, errors) {
+  if (!has(row, 'snap')) return;
+  const sn = row.snap;
+  if (!isObj(sn) || !nonBlankString(sn.grid_x) || !nonBlankString(sn.grid_y) || !isXY(sn.intersection_mm) ||
+      !Array.isArray(sn.cad_mm) || sn.cad_mm.length !== 2 || !sn.cad_mm.every((v) => typeof v === 'number' && Number.isFinite(v)) ||
+      typeof sn.deviation_mm !== 'number') {
+    errors.push(`${label}.snap must be {grid_x, grid_y, intersection_mm:[x,y] ints, cad_mm:[x,y], deviation_mm}`);
+    return;
+  }
+  if (isInt(g.x) && isInt(g.y) && (g.x !== sn.intersection_mm[0] || g.y !== sn.intersection_mm[1])) {
+    errors.push(`${label}: snapped element XY (${g.x},${g.y}) must equal the grid intersection (${sn.intersection_mm.join(',')})`);
+  }
+  const real = Math.hypot(sn.cad_mm[0] - sn.intersection_mm[0], sn.cad_mm[1] - sn.intersection_mm[1]);
+  if (Math.abs(real - sn.deviation_mm) > 1) {
+    errors.push(`${label}.snap.deviation_mm (${sn.deviation_mm}) does not match cad_mm vs intersection_mm (${Math.round(real)})`);
+  }
+  const tolerance = sn.tolerance_mm ?? get(data.acceptance_tests, 'snap_tolerance_mm') ?? 50;
+  if (real > tolerance) {
+    errors.push(`${label}: CAD deviates ${Math.round(real)} mm from grid intersection ${sn.grid_x}/${sn.grid_y} (max ${tolerance}): wrong match, do not snap`);
+  }
+}
+
 function validateExecutableGeometry(data, errors) {
-  validateDatumTable(data.datum_table, errors);
+  validateDatumTable(data.datum_table, errors, data);
   const basis = isObj(data.coordinate_basis) ? data.coordinate_basis : {};
   const t = basis.transform_to_model;
   if (!isObj(t) || !isObj(t.originMm) || !isInt(t.originMm.x) || !isInt(t.originMm.y) ||
@@ -329,7 +479,9 @@ function validateExecutableGeometry(data, errors) {
     const g = row.geometry_mm;
     const z = row.z_constraints;
     if (!isObj(g)) { errors.push(`${label}.geometry_mm must be an object`); return; }
-    if (kind === 'footing' || kind === 'column') {
+    if (kind === 'floor') {
+      validateBoundary(g.boundary, `${label}.geometry_mm.boundary`, errors);
+    } else if (kind === 'footing' || kind === 'column') {
       if (!isInt(g.x) || !isInt(g.y)) errors.push(`${label}.geometry_mm.x/y must be integers (mm)`);
       if (typeof g.rotation_deg !== 'number' || !Number.isFinite(g.rotation_deg)) {
         errors.push(`${label}.geometry_mm.rotation_deg must be a number`);
@@ -338,6 +490,7 @@ function validateExecutableGeometry(data, errors) {
       errors.push(`${label}.geometry_mm.start/end must be [x,y] integer mm`);
     }
     if (kind === 'grid') return;
+    validateSnap(row, g, label, data, errors);
     if (!isObj(z)) { errors.push(`${label}.z_constraints must be an object`); return; }
     const need = (names, ints) => {
       for (const n of names) {
@@ -346,6 +499,11 @@ function validateExecutableGeometry(data, errors) {
       }
     };
     if (kind === 'footing') need(['level', 'offset_mm'], ['offset_mm']);
+    if (kind === 'floor') need(['level', 'offset_mm'], ['offset_mm']);
+    if (has(row, 'structural') && typeof row.structural !== 'boolean') errors.push(`${label}.structural must be a boolean`);
+    if (row.category === 'architectural_walls' && row.structural === true) {
+      errors.push(`${label}: architectural_walls rows must not set structural true (use structural_walls)`);
+    }
     if (kind === 'column') need(['base_level', 'base_offset_mm', 'top_level', 'top_offset_mm'], ['base_offset_mm', 'top_offset_mm']);
     if (kind === 'beam') {
       need(['level', 'start_offset_mm', 'end_offset_mm'], ['start_offset_mm', 'end_offset_mm']);

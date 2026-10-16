@@ -1,6 +1,6 @@
 ---
 name: revit-pdf-modeler
-description: Analyze human-aligned structural PDF drawings in an open Revit project, clarify missing BIM data, build a validated frozen manifest, and (only when authorized) model it through the Revit MCP. Use when asked to model, build or reproduce a structural plan (foundations, columns, framing, walls, grids) from a PDF in Revit. Excludes reinforcement; never registers or moves the source PDF.
+description: Analyze human-aligned structural or architectural PDF drawings (optionally with an aligned DWG) in an open Revit project, clarify missing BIM data, build a validated frozen manifest, and (only when authorized) model it through the Revit MCP. Use when asked to model, build or reproduce a structural plan (foundations, columns, framing, walls, grids) from a PDF in Revit. Excludes reinforcement; never registers or moves the source PDF.
 ---
 
 <!-- Portions adapted from pdftorevit-agent (https://github.com/BadAstronaut/pdftorevit-agent), MIT, Copyright (c) 2026 Le Phu; based on KenLP/RevitMCPServer. See THIRD_PARTY_NOTICES.md. -->
@@ -25,6 +25,16 @@ The human prepares these (user guide: `docs/RUNNING_THE_AGENT.md`). Verify each 
 
 If 3–6 fail, spatial execution is **blocked**: report exactly what is wrong and wait for the human.
 
+### CAD-aligned preflight (only when the human also provides an aligned DWG)
+
+A DWG `ImportInstance` pinned and aligned to the anchor grids is source role `aligned_cad` (exact model coordinates; the PDF then supplies names/labels/legend only). Verify read-only, and put anything missing into the single clarification round:
+
+1. **Import**: the DWG ImportInstance exists in the model, is pinned, and its import scale is 1.0 (`get_spatial_reference` or a read-only `send_code_to_revit`).
+2. **Alignment**: a CAD grid line (layer of the grid axes, e.g. `000-EJES`) coincides with **each** anchor grid within 1 mm (`get_cad_geometry` mode `geometry`, layer filter, then compare to `Grid.Curve`). Record each result in `sources[].cad.anchor_checks` (`{grid, deviation_mm}`); the validator rejects > 1 mm. Misaligned or scaled: **blocked**, the human fixes it.
+3. **Layers**: list them with `get_cad_geometry` mode `layers` and propose a mapping layer -> element class (e.g. `0-PILARES` -> structural columns, `000-EJES` -> grids, the wall layer -> architectural walls, the interior-area layer -> floors). The human **confirms the mapping in the clarification round**; store it in `sources[].cad.layer_map`. Never guess a layer's meaning.
+4. **Text**: DWG text is not imported as geometry. Names (grid labels, room/area names such as LOCALES/HIPERMERCADO, level names) come from the PDF text layer or the human.
+5. **Tokens**: always call `get_cad_geometry` with `outFile` and process the file with a script (`json_summary.mjs` for inspection). Never paste thousands of segments into the conversation.
+
 ## Operating modes
 
 - `ANALYZE` (default): read-only. Inspect sources and Revit, ask focused questions, draft the manifest. Zero Revit changes.
@@ -48,7 +58,7 @@ Never interpret the PDF while creating elements. Finish interpretation, clarific
 
 ## Establish scope
 
-If categories are not specified, ask which are required: grids, structural columns, structural framing, structural foundations, structural walls, structural floors/slabs, openings. Model only selected categories. Separately ask whether native dimensions are a deliverable and record `documentation.dimensions.enabled` (true/false). Dimension execution is **not supported in this MCP yet** (see `revit-pdf-dimensioner`); a true value only produces an analysis/manifest. Rebar and every reinforcement category are always out of scope.
+If categories are not specified, ask which are required: grids, structural columns, structural framing, structural foundations, structural walls, architectural walls, floors (generic/architectural slabs, only where the plan marks interior areas), structural floors/slabs, levels (only when the human asks the agent to create missing ones), openings. Model only selected categories. For architectural projects (low detail, aligned CAD) the datum table needs only the categories in scope: no S.F. unless foundations are in scope; absolute N.P.T. per level goes in `levels[].npt_mm`. Separately ask whether native dimensions are a deliverable and record `documentation.dimensions.enabled` (true/false). Dimension execution is **not supported in this MCP yet** (see `revit-pdf-dimensioner`); a true value only produces an analysis/manifest. Rebar and every reinforcement category are always out of scope.
 
 ## Protect the human setup
 
@@ -60,7 +70,11 @@ Additional PDFs supply non-positional evidence only (dimensions, schedules, deta
 
 ## Resolve evidence
 
-Authority order: (1) human-confirmed project information, (2) written dimensions/schedules in supplementary sources, (3) written dimensions on the primary plan, (4) geometry measured from the human-scaled primary PDF using verified anchors, (5) visual inference proposed for confirmation.
+Authority order: (1) human-confirmed project information, (2) written dimensions/schedules in supplementary sources, (3) **aligned CAD geometry** (`aligned_cad` source: exact model coordinates read per layer with `get_cad_geometry`), (4) written dimensions on the primary plan, (5) geometry measured from the human-scaled primary PDF using verified anchors, (6) visual inference proposed for confirmation. When an aligned CAD exists the PDF supplies names, labels, legend and context (grid labels, room/area names), not coordinates.
+
+**Snap rule.** When the human says "snap to grid intersections", the element XY is the exact grid intersection (from the grid table), not the CAD point. Record the CAD point and deviation as evidence in the row (`snap`: `grid_x`, `grid_y`, `intersection_mm`, `cad_mm`, `deviation_mm`). A deviation above the stated tolerance (default 50 mm, `acceptance_tests.snap_tolerance_mm`) means the wrong intersection was matched: the validator fails it; fix the match or block the row, never widen silently.
+
+**Inset plans.** A level drawn as an inset on the same sheet at another location (e.g. Level 2) is placed by **grid-name references**, never by sheet position. Match at least two grid intersections between the inset and the model, derive the inset -> model transform from them, and record it as its own basis in `coordinate_basis.insets[]` (`name`, `matched_grid_intersections`, `transform_to_model`). Element rows still carry final manifest-basis coordinates (the snapped intersections).
 
 Every object has one state: `resolved`, `blocked` or `excluded`. Execute only `resolved`. Report source conflicts instead of choosing silently. A measured or visually inferred structural dimension stays `blocked` until confirmed: report raw range, proposed nominal value, evidence, affected locations and one question.
 
@@ -81,7 +95,7 @@ For `PLAN`/`EXECUTE` read [references/execution-policy.md](references/execution-
 EXECUTE flow (all scripts in `.claude/skills/revit-pdf-modeler/scripts/`):
 
 1. `node validate_manifest.mjs manifest.json` -> `VALID`.
-2. `node compile_build_payload.mjs manifest.json --out-dir out/payloads` -> deterministic staged payload files (grids, footings, columns, beams, walls; at most 500 elements per file; blocked/excluded rows skipped and listed) plus the canonical `manifestHash`.
+2. `node compile_build_payload.mjs manifest.json --out-dir out/payloads` -> deterministic staged payload files (grids, footings, columns, beams, walls, floors; at most 500 elements per file; blocked/excluded rows skipped and listed) plus the canonical `manifestHash`. Levels with `action: "create"` are **not** in `build_elements`: they are written to `levels_to_create.json` (send its `data` to `create_level` before step 4; levels are created only when the human authorized the `levels` category).
 3. Ensure types exist (`get_available_family_types`; `duplicate_family_type` for missing ones).
 4. `node revit_rpc.mjs build_elements out/payloads/<file>.json --allow-write --out out/dry.json` (dry run; the client rejects non-`dryRun:true` payloads).
 5. Review warnings/errors in the bounded summary; stop on anything unexpected.

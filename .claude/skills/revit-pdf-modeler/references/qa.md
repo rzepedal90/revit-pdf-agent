@@ -32,12 +32,18 @@ All values are mm and degrees as returned by the tools (`delta = actual - expect
 | `z_base`, `z_top` (column) | base/top level elevation + offsets vs bbox min/max z; `offsets.baseOffset/topOffset` and `baseLevel/topLevel` also compared when present | > `z`, level name differs |
 | `z_end0/1`, `z_top` (beam) | reference-line z at each end = level + start/end offset vs `location` end z; top = reference + {Top: 0, Center: h/2, Bottom: h} using the max of both ends vs bbox max z; `startZOffset/endZOffset/zJustification` compared when present | > `z`; other justifications are `skip`ped with a note |
 | `datum:<name>` | `datum_table` rows with `category` and/or `source_keys`, a name containing "top" and `value_mm` (+ `level_ref` elevation, or 0 for `absolute`) vs bbox max z | > `z` |
+| `z_top` (floor) | `levels[level].elevation_mm + offset_mm` (top of slab) vs bbox max z | > `z` |
+| `boundary_bbox` (floor) | bbox of the transformed outer boundary loop vs readback bbox min/max XY (max corner delta) | > `xy` |
+| `area` (floor) | outer area minus holes vs readback `areaMm2` (or `area_mm2`); only when the readback has it | relative difference > `tolerances_mm.area_rel` (default 0.005) |
+| `level_span` (column) | for level-to-level columns (`base_level` != `top_level`): readback `offsets.baseLevel`/`topLevel` equal the manifest levels | names differ (fail); readback lacks them (warning); z checks above still apply |
 | `size_x`, `size_y` | footing/column bbox extents vs type `dimensions_mm`, swapped for 90/270 rotations | > `size`; rotations that are not multiples of 90 are `skip`ped with a note |
 | `support` | column/pedestal XY inside a bbox of its `host_supports` (any footing when none) +/- `support_xy`, and column base z = support top within `support_z` | outside every candidate, or base/top gap > `support_z` |
 | `support_end` | each beam end inside some column/footing/wall/other-beam bbox +/- `support_xy` in XY and +/- `support_z` in Z | no candidate and end not in `allowed_unsupported_ends` (delta = nearest bbox gap) |
 | `overlap` (warning) | footing-footing bbox overlap in plan and z | overlap area > `overlap_threshold_mm2` and different `group` |
 
 Support contact is a **bbox broad phase only** (`contact: "bbox-candidate"`, same candidate semantics as `verifyBeamEndpoints` in `qa_invariants.mjs`, with separate XY and Z tolerances). A pass is evidence of proximity, not of solid contact; concave, rotated or trimmed supports need a narrow-phase check before sign-off.
+
+Architectural categories: `architectural_walls` rows are checked exactly like walls (identity, category, type, `xy` of both endpoints); `floors` / `structural_floors` use the floor checks above. `Walls`/`Floors` (and `Muros`/`Suelos`/`Pisos`) are accepted as Revit category names for them without `category_aliases`. The `support` check is `skip`ped for columns when `structural_foundations` is not in `scope.categories` and the row has no `host_supports`. Typeless rows (grids) skip the type lookup. `datum_table.rows` (object form) is the source of machine-checked datum rows.
 
 ## 3. Tolerances (`acceptance_tests`)
 
@@ -50,6 +56,8 @@ Support contact is a **bbox broad phase only** (`contact: "bbox-candidate"`, sam
 | `tolerances_mm.support_xy` | 10 |
 | `tolerances_mm.support_z` | 2 |
 | `overlap_threshold_mm2` | 10000 |
+| `tolerances_mm.area_rel` (relative, floors) | 0.005 |
+| `snap_tolerance_mm` (validator, snapped CAD columns) | 50 |
 
 Other optional keys: `allowed_unsupported_ends` (`"<source_key>"` for both ends or `"<source_key>#0"` / `"#1"` for start / end; reported as warnings), `category_aliases`, `key_prefix`.
 
