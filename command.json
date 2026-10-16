@@ -159,6 +159,11 @@
       "assemblyPath": "RevitMCPCommandSet.dll"
     },
     {
+      "commandName": "get_cad_geometry",
+      "description": "Read-only per-layer geometry (lines, arcs, polylines, solids) and layer summary of imported CAD (ImportInstance) in model mm, with filters, paging and file output",
+      "assemblyPath": "RevitMCPCommandSet.dll"
+    },
+    {
       "commandName": "get_elements_info",
       "description": "Read-back numeric info for up to 200 element ids (type, location, bbox, elevations, offsets, material, source key)",
       "assemblyPath": "RevitMCPCommandSet.dll"
