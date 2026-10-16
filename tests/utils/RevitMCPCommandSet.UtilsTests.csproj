@@ -16,6 +16,7 @@
     <Compile Include="..\..\commandset\Utils\UnitConversionPolicy.cs" Link="Linked\UnitConversionPolicy.cs" />
     <Compile Include="..\..\commandset\Utils\ExpectedCountPolicy.cs" Link="Linked\ExpectedCountPolicy.cs" />
     <Compile Include="..\..\commandset\Utils\BuildElementsModel.cs" Link="Linked\BuildElementsModel.cs" />
+    <Compile Include="..\..\commandset\Utils\CadGeometryMath.cs" Link="Linked\CadGeometryMath.cs" />
   </ItemGroup>
 
   <ItemGroup>

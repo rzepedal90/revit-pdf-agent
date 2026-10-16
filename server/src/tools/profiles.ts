@@ -11,6 +11,7 @@ export const PROFILES: Record<string, string[]> = {
     ...CORE,
     "get_spatial_reference",
     "get_view_image",
+    "get_cad_geometry",
     "get_available_family_types",
     "get_elements_info",
     "find_elements",
@@ -26,6 +27,7 @@ export const PROFILES: Record<string, string[]> = {
     "find_by_source_key",
     "set_source_key",
     "build_elements",
+    "get_cad_geometry",
     "set_parameter",
     "set_parameter_batch",
     "duplicate_family_type",
@@ -40,6 +42,7 @@ export const PROFILES: Record<string, string[]> = {
     "query_where",
     "find_by_source_key",
     "get_view_image",
+    "get_cad_geometry",
   ],
   architecture: [
     ...CORE,
