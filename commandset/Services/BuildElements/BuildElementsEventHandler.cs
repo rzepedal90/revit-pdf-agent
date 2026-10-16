@@ -267,6 +267,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
             {
                 case "wall": return el is Wall;
                 case "grid": return el is Grid;
+                case "floor": return el is Floor;
                 default:
                     return el is FamilyInstance && el.Category != null && el.Category.Id.GetValue() == (long)CatOf(kind);
             }
@@ -298,6 +299,21 @@ namespace RevitMCPCommandSet.Services.BuildElements
                     var m = new FilteredElementCollector(_doc).OfClass(typeof(WallType)).Cast<WallType>()
                         .Where(t => t.Name == s.TypeName).ToList();
                     result = Single(m.Select(t => t.Id).ToList(), "WallType '" + s.TypeName + "'");
+                }
+            }
+            else if (s.Kind == "floor")
+            {
+                if (s.TypeId != null)
+                {
+                    var ft = _doc.GetElement(ParameterWriter.MakeId(s.TypeId.Value)) as FloorType
+                        ?? throw new RevitCommandException(ErrorCodes.NotFound, "typeId " + s.TypeId + " is not a FloorType.");
+                    result = ft.Id;
+                }
+                else
+                {
+                    var m = new FilteredElementCollector(_doc).OfClass(typeof(FloorType)).Cast<FloorType>()
+                        .Where(t => t.Name == s.TypeName).ToList();
+                    result = Single(m.Select(t => t.Id).ToList(), "FloorType '" + s.TypeName + "'");
                 }
             }
             else
@@ -370,6 +386,7 @@ namespace RevitMCPCommandSet.Services.BuildElements
             {
                 case "footing":
                 case "beam":
+                case "floor":
                     c.L1 = LevelByName(s.Level);
                     break;
                 case "column":
@@ -474,6 +491,8 @@ namespace RevitMCPCommandSet.Services.BuildElements
                     SetWallConstraints(w, c);
                     return w;
                 }
+                case "floor":
+                    return CreateFloor(c);
                 default:
                 {
                     var g = Grid.Create(_doc, Line.CreateBound(P3(s.Start, 0), P3(s.End, 0)));
@@ -483,11 +502,43 @@ namespace RevitMCPCommandSet.Services.BuildElements
             }
         }
 
+        private Floor CreateFloor(Ctx c)
+        {
+#if REVIT2022_OR_GREATER
+            var s = c.S;
+            var z = c.L1.Elevation;
+            var loops = new List<CurveLoop>();
+            foreach (var pts in s.Boundary)
+            {
+                var loop = new CurveLoop();
+                for (int i = 0; i < pts.Count; i++)
+                    loop.Append(Line.CreateBound(P3(pts[i], z), P3(pts[(i + 1) % pts.Count], z)));
+                loops.Add(loop);
+            }
+            var fl = Floor.Create(_doc, loops, c.TypeId, c.L1.Id, s.Structural, null, 0);
+            SetMm(fl, BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM, s.OffsetMm);
+            SetInt(fl, BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL, s.Structural ? 1 : 0);
+            return fl;
+#else
+            throw new RevitCommandException(ErrorCodes.InvalidParameter,
+                "Kind 'floor' needs Revit 2022 or newer (Floor.Create with CurveLoops); this build targets an older Revit.");
+#endif
+        }
+
         // ------------------------------------------------------------------ update
 
         private Element Update(Ctx c, Element el)
         {
             var s = c.S;
+
+            // Floors: sketch editing is not supported by the API in a stable way -> delete and recreate (same source key).
+            if (s.Kind == "floor")
+            {
+                _doc.Delete(el.Id);
+                var nf = CreateFloor(c);
+                _createdIds.Add(nf.Id.GetValue());
+                return nf;
+            }
 
             // type first (may recreate the element and change its id)
             if (s.Kind != "grid" && TypeIdOf(el) != c.TypeId.GetValue())
@@ -711,6 +762,8 @@ namespace RevitMCPCommandSet.Services.BuildElements
 
         // ------------------------------------------------------------------ compare / readback
 
+        private const double FloorExtentToleranceMm = 2.0;
+
         private static long TypeIdOf(Element el) => el.GetTypeId().GetValue();
 
         private static double? Mm(Element el, BuiltInParameter bip)
@@ -843,6 +896,49 @@ namespace RevitMCPCommandSet.Services.BuildElements
                     var kr = Prm(el, BuiltInParameter.WALL_KEY_REF_PARAM);
                     var wantK = BuildElementsModel.LocationLineValue(s.LocationLine);
                     if (kr == null || kr.AsInteger() != wantK) d.Add("location line is " + (kr == null ? "missing" : kr.AsInteger().ToString()) + ", expected " + wantK + " (" + s.LocationLine + ")");
+                    break;
+                }
+                case "floor":
+                {
+                    var lvlP = Prm(el, BuiltInParameter.LEVEL_PARAM);
+                    var curLvl = lvlP != null && lvlP.StorageType == StorageType.ElementId ? lvlP.AsElementId().GetValue() : el.LevelId.GetValue();
+                    CheckId(d, "level", curLvl, c.L1.Id.GetValue());
+                    CheckMm(d, "offset", Mm(el, BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM), s.OffsetMm);
+                    var stP = Prm(el, BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL);
+                    if (stP == null || (stP.AsInteger() != 0) != s.Structural) d.Add("structural flag differs");
+                    // extent: floor bounding box vs the outer loop extent (2 mm)
+                    var bb = el.get_BoundingBox(null);
+                    if (bb == null) d.Add("no bounding box");
+                    else
+                    {
+                        var ext = BuildElementsModel.Extent(s.Boundary[0]);
+                        var got = new[] { bb.Min.X, bb.Min.Y, bb.Max.X, bb.Max.Y };
+                        var names = new[] { "min X", "min Y", "max X", "max Y" };
+                        for (int i = 0; i < 4; i++)
+                        {
+                            var gmm = BuildElementsModel.FtToMm(got[i]);
+                            if (!BuildElementsModel.NearMm(gmm, ext[i], FloorExtentToleranceMm))
+                                d.Add("extent " + names[i] + " is " + gmm.ToString("0.###") + " mm, expected " + ext[i].ToString("0.###"));
+                        }
+                    }
+#if REVIT2022_OR_GREATER
+                    if (el is Floor fl && _doc.GetElement(fl.SketchId) is Sketch sk)
+                    {
+                        var actual = new List<List<MmPoint>>();
+                        foreach (CurveArray ca in sk.Profile)
+                        {
+                            var pts = new List<MmPoint>();
+                            foreach (Curve cv in ca)
+                            {
+                                var p0 = cv.GetEndPoint(0);
+                                pts.Add(new MmPoint(BuildElementsModel.FtToMm(p0.X), BuildElementsModel.FtToMm(p0.Y)));
+                            }
+                            actual.Add(pts);
+                        }
+                        if (!BuildElementsModel.BoundariesEqual(s.Boundary, actual))
+                            d.Add("boundary differs (" + actual.Count + " loop(s) in sketch, " + s.Boundary.Count + " requested)");
+                    }
+#endif
                     break;
                 }
                 case "grid":

@@ -110,6 +110,77 @@ namespace RevitMCPCommandSet.UtilsTests
             Assert.Equal(350, BuildElementsModel.NormalizeDeg(-10), 6);
         }
 
+        private const string FloorHead = "'sourceKey':'FL','kind':'floor','typeName':'Losa','level':'N','offsetMm':-50";
+
+        [Fact] public void FloorParsesBoundaryAndDefaults()
+        {
+            var it = BuildElementsModel.Parse(Req("{" + FloorHead +
+                ",'boundary':[[{'x':0,'y':0},{'x':4000,'y':0},{'x':4000,'y':3000},{'x':0,'y':3000}],[{'x':1000,'y':1000},{'x':2000,'y':1000},{'x':2000,'y':2000}]]}")).Items[0];
+            Assert.Equal("floor", it.Kind);
+            Assert.False(it.Structural);
+            Assert.Equal(-50, it.OffsetMm);
+            Assert.Equal(2, it.Boundary.Count);
+            Assert.Equal(4, it.Boundary[0].Count);
+        }
+
+        [Fact] public void FloorRequiresOffsetAndBoundary()
+        {
+            const string b = ",'boundary':[[{'x':0,'y':0},{'x':4000,'y':0},{'x':4000,'y':3000}]]";
+            Assert.Throws<RevitCommandException>(() => BuildElementsModel.Parse(Req("{'sourceKey':'FL','kind':'floor','typeName':'L','level':'N'" + b + "}")));
+            Assert.Throws<RevitCommandException>(() => BuildElementsModel.Parse(Req("{" + FloorHead + "}")));
+        }
+
+        [Fact] public void FloorRemovesDegenerateAndClosingPoints()
+        {
+            var it = BuildElementsModel.Parse(Req("{" + FloorHead +
+                ",'boundary':[[{'x':0,'y':0},{'x':0.4,'y':0.2},{'x':4000,'y':0},{'x':4000,'y':3000},{'x':0,'y':0}]]}")).Items[0];
+            Assert.Equal(3, it.Boundary[0].Count);
+        }
+
+        [Fact] public void FloorRejectsTooFewOrCollinearPoints()
+        {
+            Assert.Throws<RevitCommandException>(() => BuildElementsModel.Parse(Req("{" + FloorHead +
+                ",'boundary':[[{'x':0,'y':0},{'x':4000,'y':0},{'x':4000.5,'y':0}]]}")));
+            Assert.Throws<RevitCommandException>(() => BuildElementsModel.Parse(Req("{" + FloorHead +
+                ",'boundary':[[{'x':0,'y':0},{'x':1000,'y':0},{'x':2000,'y':0}]]}")));
+        }
+
+        [Fact] public void FloorBoundaryTransformedAndExtent()
+        {
+            var it = BuildElementsModel.Parse(Req("{" + FloorHead +
+                ",'boundary':[[{'x':0,'y':0},{'x':4000,'y':0},{'x':4000,'y':3000},{'x':0,'y':3000}]]}",
+                "'transform':{'originMm':{'x':100,'y':200},'rotationDeg':90},")).Items[0];
+            var e = BuildElementsModel.Extent(it.Boundary[0]);
+            Assert.Equal(100 - 3000, e[0], 6);
+            Assert.Equal(200, e[1], 6);
+            Assert.Equal(100, e[2], 6);
+            Assert.Equal(200 + 4000, e[3], 6);
+        }
+
+        [Fact] public void BoundariesEqualIgnoresOrderStartAndDirection()
+        {
+            var a = new List<MmPoint> { new MmPoint(0, 0), new MmPoint(10, 0), new MmPoint(10, 10) };
+            var b = new List<MmPoint> { new MmPoint(10, 10), new MmPoint(10, 0.3), new MmPoint(0, 0) };
+            Assert.True(BuildElementsModel.BoundariesEqual(new[] { a }, new[] { b }));
+            b[0] = new MmPoint(10, 12);
+            Assert.False(BuildElementsModel.BoundariesEqual(new[] { a }, new[] { b }));
+        }
+
+        [Fact] public void WallArchitecturalAndLocationLineAliases()
+        {
+            const string w = "'sourceKey':'W','kind':'wall','typeName':'M','start':{'x':0,'y':0},'end':{'x':3000,'y':0},'baseLevel':'N','baseOffsetMm':0,'heightMm':2500";
+            var a = BuildElementsModel.Parse(Req("{" + w + ",'structural':false,'locationLine':'finishFaceExterior'}")).Items[0];
+            Assert.False(a.Structural);
+            Assert.Equal("finish_exterior", a.LocationLine);
+            Assert.Equal(2, BuildElementsModel.LocationLineValue(a.LocationLine));
+            Assert.Equal(0, BuildElementsModel.LocationLineValue(BuildElementsModel.ParseLocationLine("center")));
+            Assert.Equal(1, BuildElementsModel.LocationLineValue(BuildElementsModel.ParseLocationLine("coreCenter")));
+            Assert.Equal(3, BuildElementsModel.LocationLineValue(BuildElementsModel.ParseLocationLine("finish_interior")));
+            Assert.Equal(4, BuildElementsModel.LocationLineValue(BuildElementsModel.ParseLocationLine("coreExterior")));
+            Assert.Equal(5, BuildElementsModel.LocationLineValue(BuildElementsModel.ParseLocationLine("core_interior")));
+            Assert.Throws<RevitCommandException>(() => BuildElementsModel.ParseLocationLine("left"));
+        }
+
         [Fact] public void ParametersParsed()
         {
             var s = BuildElementsModel.Parse(Req(Footing.TrimEnd('}') + ",'parameters':[{'name':'Mark','value':'F1'},{'builtIn':'ALL_MODEL_MARK','value':3,'units':'mm'}]}"));

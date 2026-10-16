@@ -7,14 +7,14 @@ const xy = z.object({ x: z.number(), y: z.number() });
 const element = z
   .object({
     sourceKey: z.string().describe("Stable unique key, e.g. '1725-S301/F3/017'"),
-    kind: z.enum(["footing", "column", "beam", "wall", "grid"]),
+    kind: z.enum(["footing", "column", "beam", "wall", "grid", "floor"]),
     typeId: z.union([z.number(), z.string()]).optional().describe("Type element id (not for grid)"),
     familyName: z.string().optional(),
-    typeName: z.string().optional().describe("Type name (WallType name for walls); required unless typeId"),
+    typeName: z.string().optional().describe("Type name (WallType for walls, FloorType for floors); required unless typeId"),
     point: xy.optional().describe("footing/column location, mm"),
     rotationDeg: z.number().optional().describe("footing/column rotation about the vertical axis, deg (required for them)"),
-    level: z.string().optional().describe("footing/beam level name"),
-    offsetMm: z.number().optional().describe("footing offset from level, mm"),
+    level: z.string().optional().describe("footing/beam/floor level name"),
+    offsetMm: z.number().optional().describe("footing/floor offset from level, mm (floor: height offset from level, required)"),
     baseLevel: z.string().optional().describe("column/wall base level"),
     baseOffsetMm: z.number().optional(),
     topLevel: z.string().optional().describe("column/wall top level"),
@@ -26,10 +26,29 @@ const element = z
     zJustification: z.enum(["top", "center", "bottom"]).optional().describe("beam; default top"),
     structuralUsage: z.enum(["girder", "joist", "other"]).optional(),
     heightMm: z.number().optional().describe("wall unconnected height (alternative to topLevel+topOffsetMm)"),
-    structural: z.boolean().optional().describe("wall; default true"),
+    structural: z.boolean().optional().describe("wall default true (false = architectural wall); floor default false"),
     locationLine: z
-      .enum(["center", "core_center", "finish_exterior", "finish_interior", "core_exterior", "core_interior"])
-      .optional(),
+      .enum([
+        "center",
+        "core_center",
+        "finish_exterior",
+        "finish_interior",
+        "core_exterior",
+        "core_interior",
+        "wallCenterline",
+        "coreCenter",
+        "finishFaceExterior",
+        "finishFaceInterior",
+        "coreExterior",
+        "coreInterior",
+      ])
+      .optional()
+      .describe("wall location line; default center. camelCase aliases map 1:1 to Revit WallLocationLine"),
+    boundary: z
+      .array(z.array(xy).min(3))
+      .min(1)
+      .optional()
+      .describe("floor: loops of {x,y} mm, outer loop first then optional holes; closed implicitly; points closer than 1 mm are merged"),
     name: z.string().optional().describe("grid name"),
     parameters: z
       .array(
@@ -48,7 +67,7 @@ const element = z
 export function registerBuildElementsTool(server: McpServer) {
   server.tool(
     "build_elements",
-    "Deterministic, idempotent bulk builder for footings, columns, beams, walls and grids from a data payload (max 500). All vertical constraints are explicit (no defaults). Elements are keyed by sourceKey: upsert updates/moves existing ones, skips unchanged ones, create_only errors on existing keys. dryRun (DEFAULT true) executes in a rolled-back transaction group and reports commit-time Revit warnings. All-or-nothing, one undo step, verified readback (0.5 mm). Returns compact {ok,dryRun,committed,counts,items,warnings,errors}.",
+    "Deterministic, idempotent bulk builder for footings, columns, beams, walls, floors and grids from a data payload (max 500). All vertical constraints are explicit (no defaults). Floors (Revit 2022+): kind 'floor' with typeName/typeId (FloorType), level, offsetMm (required) and boundary loops; changed floors are deleted and recreated under the same sourceKey (action 'updated'). Elements are keyed by sourceKey: upsert updates/moves existing ones, skips unchanged ones, create_only errors on existing keys. dryRun (DEFAULT true) executes in a rolled-back transaction group and reports commit-time Revit warnings. All-or-nothing, one undo step, verified readback (0.5 mm). Returns compact {ok,dryRun,committed,counts,items,warnings,errors}.",
     {
       dryRun: z.boolean().default(true).describe("Default true: preview only (rolled back). Pass false to commit."),
       mode: z.enum(["upsert", "create_only"]).default("upsert"),
